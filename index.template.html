@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        .svg-container {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+{{svgs}}
+
+<script>
+    (function() {
+        let storedHash = window.location.hash;
+        window.setInterval(function () {
+            if (window.location.hash != storedHash) {
+                storedHash = window.location.hash
+                hashChanged(storedHash)
+            }
+        }, 50)
+
+        const initId = 'general'
+        let beforeId = ''
+
+        hashChanged(window.location.hash)
+
+        function hide(id) {
+            if (id == '') return
+            let e = document.querySelector(`#${id}`)
+            if (!e) return
+            e.style.display = 'none'
+        }
+
+        function display(id) {
+            let e = document.querySelector(`#${id}`)
+            if (!e) return
+            e.style.display = 'block'
+            beforeId = id
+        }
+
+
+        function hashChanged(anchor) {
+            anchor = anchor || '#general'
+            console.log(anchor)
+            const id = anchor.slice(1)
+            hide(beforeId)
+            display(id)
+        }
+    }())
+</script>
+
+</body>
+</html>
