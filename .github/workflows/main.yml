@@ -27,13 +27,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: build svgs
-        uses: rlespinasse/drawio-export-action@2.1.0
-        with:
-          path: src
-          output: build
-          format: svg
-
       - name: build page
         run: node build.js
 

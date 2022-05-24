@@ -1,7 +1,7 @@
 const fs = require('fs')
 const child_process = require('child_process')
 
-const dir = './build'
+const dir = './svg'
 
 main()
 
@@ -17,6 +17,6 @@ function main() {
             return name.slice(0, name.length - endOffset)
         })
         .map(name => {
-            child_process.execSync(`draw.io -xf svg -o ./build/${name}.svg ./src/${name}.drawio`)
+            child_process.execSync(`draw.io -xf svg -o ${dir}/${name}.svg ./src/${name}.drawio`)
         })
 }

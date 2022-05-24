@@ -10,7 +10,7 @@ function main() {
     }
 
     const template = fs.readFileSync('./index.template.html', 'utf8')
-    const svgs = fs.readdirSync('./build')
+    const svgs = fs.readdirSync('./svg')
     const contents = svgs
         .filter(svg => svg.endsWith('.svg'))
         .map(svg => {
@@ -18,7 +18,7 @@ function main() {
             return svg.slice(0, svg.length - endOffset)
         })
         .map(svg => {
-            const svgContent = fs.readFileSync(`./build/${svg}.svg`, 'utf8')
+            const svgContent = fs.readFileSync(`./svg/${svg}.svg`, 'utf8')
             const content = `<div class="svg-container" id="${svg}">\n\t${svgContent.split('\n').slice(2)}\n</div>`
             return content
         })
