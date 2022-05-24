@@ -18,7 +18,7 @@ function main() {
             return svg.slice(0, svg.length - endOffset)
         })
         .map(svg => {
-            const svgContent = fs.readFileSync(`./src/${svg}.svg`, 'utf8')
+            const svgContent = fs.readFileSync(`./build/${svg}.svg`, 'utf8')
             const content = `<div class="svg-container" id="${svg}">\n\t${svgContent.split('\n').slice(2)}\n</div>`
             return content
         })
