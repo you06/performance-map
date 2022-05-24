@@ -30,8 +30,8 @@ jobs:
       - name: build svgs
         uses: rlespinasse/drawio-export-action@2.1.0
         with:
-          path: src
-          output: build
+          path: ./src
+          output: ./build
           format: svg
 
       - name: check root
