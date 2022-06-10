@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<head>
+  <title>Performance Map</title>
+  <link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/tabatkins/railroad-diagrams/railroad.css'/>
+  <style>
+    body {
+      background-color: hsl(30, 20%, 95%);
+    }
+    h1 {
+      font-family: sans-serif;
+      font-size: 1.5em;
+      margin-top: 1em;
+      margin-bottom: 0.5em;
+    }
+    svg.railroad-diagram rect {
+      fill: rgb(245, 245, 245);
+    }
+    svg.railroad-diagram g.with-metrics rect {
+      fill: rgb(204, 255, 204);
+    }
+    dt {
+      font-weight: bold;
+    }
+  </style>
+  <script>
+    function addDiagramAfter(id, diagram) {
+      const diag = document.createElement("div");
+      diagram.addTo(diag);
+      document.getElementById(id).insertAdjacentElement("afterend", diag);
+    }
+  </script>
+</head>
+<body>
+
+  <h1 id="tidb-query-duration">TiDB Query Duration</h1>
+  <script type="module">
+    import rr from "https://cdn.jsdelivr.net/gh/tabatkins/railroad-diagrams/railroad.js";
+    addDiagramAfter("tidb-query-duration", rr.Diagram(
+      rr.Sequence(
+        rr.NonTerminal("Receive packet from the client", {href: "#receive-packet-from-the-client"}),
+        rr.NonTerminal("Process query in TiDB (include TiKV)", {href: "#process-query-in-tidb"}),
+      ),
+    ));
+  </script>
+  <dl>
+    <dt>Receive packet from the client</dt>
+    <dd>The duration contains network and operation schedule latency, etc.</dd>
+    <dt>Process query in TiDB (include TiKV)</dt>
+    <dd>Include all the duration TiDB executing queries and the duration sending response back to the client.</dd>
+  </dl>
+
+  <h1 id="receive-packet-from-the-client">Receive packet from the client</h1>
+  <script type="module">
+    import rr from "https://cdn.jsdelivr.net/gh/tabatkins/railroad-diagrams/railroad.js";
+    addDiagramAfter("receive-packet-from-the-client", rr.Diagram(
+      rr.Sequence(
+        rr.NonTerminal("Write system call duration in client"),
+        rr.NonTerminal("Network duration"),
+        rr.NonTerminal("Parsing TCP protocol duration"),
+        rr.NonTerminal("Schedule TiDB conn duration"),
+        rr.NonTerminal("Copy packet into user space duration"),
+      ),
+    ));
+  </script>
+  <dl>
+    <dt>Write system call duration in client</dt>
+    <dd>Client send request into NIC by write system call.</dd>
+    <dt>Network duration</dt>
+    <dd>Network transmission duration.</dd>
+    <dt>Parsing TCP protocol duration</dt>
+    <dd>After server's NIC receiving the TCP request, system need to parse the packet for application usage.</dd>
+    <dt>Schedule TiDB conn duration</dt>
+    <dd>There are some cases that TiDB does not read packet from the connection immediately, such duration starts from writing OK package for last query and ends when it's ready to read the packet for current query.</dd>
+    <dt>Copy packet into user space duration</dt>
+    <dd>TiDB read packet from connection by read system call which will copy the packet into user space.</dd>
+  </dl>
+
+  <h1 id="process-query-in-tidb">Process query in TiDB (include TiKV)</h1>
+  <script type="module">
+    import rr from "https://cdn.jsdelivr.net/gh/tabatkins/railroad-diagrams/railroad.js";
+    addDiagramAfter("process-query-in-tidb", rr.Diagram(
+      rr.Sequence(
+        rr.NonTerminal("Token wait duration", {cls: "with-metrics"}),
+        rr.Choice(
+          0,
+          rr.Comment("Prepared statement"),
+          rr.NonTerminal("Parse duration", {cls: "with-metrics"}),
+        ),
+        rr.OneOrMore(
+          rr.Sequence(
+            rr.Choice(
+              0,
+              rr.NonTerminal('Optimize prepared plan duration'),
+              rr.Sequence(
+                rr.Comment('Plan cache miss'),
+                rr.NonTerminal('Compile duration', {cls: "with-metrics"}),
+              ),
+            ),
+            rr.NonTerminal("TSO wait duration", {cls: "with-metrics"}),
+            rr.NonTerminal("Execution duration", {href: "#execution-duration", cls: "with-metrics"}),
+          ),
+          rr.Comment("Retry"),
+        ),
+      ),
+    ));
+  </script>
+  <dl>
+    <dt>Token wait duration</dt>
+    <dd>Flow control for all commands in TiDB, it's extremely fast when there are enough tokens in the pool.</dd>
+    <dt>Parse duration</dt>
+    <dd>Parse sql query text to AST (when using text protocol). For simplicity, we assume 1 command contains 1 sql only.</dd>
+    <dt>Compile duration</dt>
+    <dd>Optimize query and compile it to physical plan is required.</dd>
+    <dt>Optimize prepared plan duration</dt>
+    <dd>The cached plan need to be re-checked in plan cache. This optimize should be fast in most cases, and it'll be re-compiled when it's not valid, e.g. schema has been changed.</dd>
+    <dt>TSO wait duration</dt>
+    <dd>TSO will be resolved in executor builder phase, the in-txn current read(insert/delete/update/selectForUpdate) statements will wait for the latest TSO here.</dd>
+    <dt>Execution duration</dt>
+    <dd>This phase contains writing result to the client, and there are many different possible paths, it's significantly different for read/write queries.</dd>
+    <dt>Retry</dt>
+    <dd>Some queries may suffer from failure and they are retryable(due to both logical and system failures), if the retry is successful, the failure duration will be part of latency.</dd>
+  </dl>
+
+  <h1 id="execution-duration">Execution duration</h1>
+  <script type="module">
+    import rr from "https://cdn.jsdelivr.net/gh/tabatkins/railroad-diagrams/railroad.js";
+    addDiagramAfter("execution-duration", rr.Diagram(
+      rr.Choice(
+        0,
+        rr.Sequence(
+          rr.Comment("Read"),
+          rr.OneOrMore(
+            rr.Sequence(
+              rr.NonTerminal("Read next"),
+              rr.NonTerminal("Write result to client"),
+            ),
+            rr.Comment("drain the result set"),
+          ),
+        ),
+        rr.Sequence(
+          rr.Comment("Write"),
+          rr.NonTerminal("Execute write"),
+          rr.Choice(
+            0,
+            rr.NonTerminal("Pessimistic lock"),
+            rr.Comment("Optimisitc mode"),
+          ),
+          rr.Choice(
+            0,
+            rr.NonTerminal("Commit"),
+            rr.Comment("Explicit transaction"),
+          ),
+          rr.NonTerminal("Write result to client"),
+        ),
+      ),
+    ));
+  </script>
+  <ul>
+    <li>Write executors are executed immediately, and a result with affected rows need to be written to client, such write will execute only once for one query.</li>
+    <li>Pessimistic write will have an extra phase that acquires pessimistic locks.</li>
+    <li>Auto-commit write queries will be committed after executing, in which 2PC will be executed.</li>
+    <li>The resultset of read executor will be fetched and written to client in batches, this strategy makes the diagnosis of read latency hard. Some slow async requests may not affect the user-end latency if they are ready before the Next of it is called. You need to carefully analyze such issues by digging into some concrete query and plan.</li>
+  </ul>
+
+</body>
