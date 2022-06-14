@@ -1,4 +1,4 @@
-TEMPLATE_VERSION := 5736c7fdefbe282557479e4890a5c37f8b39341b
+TEMPLATE_VERSION := perfmap
 
 .PHONY: build clean FORCE
 
@@ -10,4 +10,4 @@ clean:
 dist/%.html: src/%.md Makefile
 	@mkdir -p dist
 	@echo generating $@
-	@curl -sL https://cdn.jsdelivr.net/gh/zyguan/railroad-diagrams@$(TEMPLATE_VERSION)/template.html | sed -e "s/^__TITLE__$$/$(shell sed -n -e '/^#/ {s/#\s\+//;p;q}' $<)/" -e "/^__MARKDOWN__$$/{r $<" -e "d}" > $@
+	@curl -sL https://raw.githubusercontent.com/zyguan/railroad-diagrams/$(TEMPLATE_VERSION)/template.html | sed -e "s/^__TITLE__$$/$(shell sed -n -e '/^#/ {s/#\s\+//;p;q}' $<)/" -e "/^__MARKDOWN__$$/{r $<" -e "d}" > $@
