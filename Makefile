@@ -2,7 +2,7 @@ TEMPLATE_VERSION := perfmap
 
 .PHONY: build clean FORCE
 
-build: dist/tidb-query-duration.html
+build: dist/tidb-query-duration.html dist/tidb-kv-client.html
 
 clean:
 	@rm -rfv dist
