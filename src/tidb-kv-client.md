@@ -10,11 +10,124 @@
   - [ ] BatchGet
   - [ ] Iter
   - [ ] IterReverse
-- [ ] Txn KV: Lock Keys
-- [ ] Txn KV: Commit
-- [ ] Txn KV: Rollback
 
-## RPC Client: Send Request
+## Txn KV: Start Transaction
+
+```railroad
+Diagram(
+  NonTerminal("Wait start-ts ready"),
+)
+```
+
+- *start-ts* of a transaction is fetched asynchronously (typically requested on *optimize*). The duration is obeserved as `tidb_tikvclient_ts_future_wait_seconds`.
+
+## Txn KV: Lock Keys
+
+```railroad
+Diagram(
+  NonTerminal("Filter and deduplicate keys"),
+  Choice(
+    0,
+    Sequence(
+      NonTerminal("Apply pessimistic-lock on mutations", {href: "#do-action-on-mutations"}),
+      Choice(
+        0,
+        Sequence(
+          Comment("ok"),
+          NonTerminal("Update key flags in membuf"),
+        ),
+        Sequence(
+          Comment("err"),
+          Choice(
+            0,
+            Comment("failed to lock 1 key"),
+            Sequence(Comment("deadlock"), NonTerminal("pessimistic rollback")),
+            NonTerminal("Async pessimistic rollback"),
+          ),
+        ),
+      ),
+    ),
+    Comment("no key need to be locked"),
+  ),
+
+)
+```
+
+- The duration is obeserved as `tidb_tikvclient_txn_cmd_duration_seconds{type="lock_keys"}`.
+- Each key will be locked once within a transaction.
+
+
+## Txn KV: Commit
+
+TODO
+
+## Txn KV: Rollback
+
+```railroad
+Diagram(
+  Choice(
+    0,
+    NonTerminal("Rollback pessimistic locks"),
+    Comment("optimisitc or no key locked"),
+  )
+)
+```
+
+- The duration is obeserved as `tidb_tikvclient_txn_cmd_duration_seconds{type="rollback"}`.
+
+## Two Phase Committer
+
+### Do Action on Mutations
+
+```railroad
+Diagram(
+  Stack(
+    Sequence(
+      NonTerminal("Group mutations by region"),
+      Optional(NonTerminal("Pre-split and re-group"), "skip"),
+      NonTerminal("Group mutations by batch"),
+    ),
+    Sequence(
+      Optional(NonTerminal("Apply action on primary batch"), "skip"),
+      Choice(
+        0,
+        NonTerminal("Apply action on rest batches", {href: "#batch-executor"}),
+        NonTerminal("Commit secondary batches asynchronously", {href: "#batch-executor"}),
+      ),
+    ),
+  ),
+)
+```
+
+- The time of grouping mutations is mainly spent on locating keys. If mutation size on a single region is too large, pre-split that region and re-group mutations.
+- Apply action on primary firstly if primary is in mutations and action is pessimistic-lock, commit(non-async) or cleanup.
+
+### Batch Executor
+
+TODO
+
+### Action: Pessimistic Lock
+
+TODO
+
+### Action: Pessimistic Rollback
+
+TODO
+
+### Action: Prewrite
+
+TODO
+### Action: Commit
+
+TODO
+
+### Action: Cleanup
+
+TODO
+
+## RPC Client
+
+### Send Request
 
 ```railroad
 Diagram(
@@ -23,8 +136,8 @@ Diagram(
     0,
     Sequence(
       Comment("Batch enabled"),
-      NonTerminal("Push request to channel", {cls: "with-metrics"}),
-      NonTerminal("Wait response", {href: "#rpc-client-batch-request-loop"}),
+      NonTerminal("Push request to channel", {href: "#batch-send-loop", cls: "with-metrics"}),
+      NonTerminal("Wait response", {href: "#batch-recv-loop"}),
     ),
     Sequence(
       NonTerminal("Get conn from pool"),
@@ -45,11 +158,10 @@ Diagram(
 - The size of batch request channel is `tikv-client.max-batch-size` (default: 128), the duration of enqueue is obeserved as `tidb_tikvclient_batch_wait_duration`.
 - There are three kinds of stream request: CmdBatchCop, CmdCopStream, CmdMPPConn, which involve an additional recv call to fetch the first response from the stream.
 
-## RPC Client: Batch Request Loop
+### Batch Send Loop
 
 ```railroad
 Diagram(
-  Comment("send"),
   OneOrMore(
     Sequence(
       NonTerminal("Fetch pending requests"),
@@ -69,9 +181,10 @@ Diagram(
 - If the target TiKV is overload, more requests may be collected for sending. The event is only counted by `tidb_tikvclient_batch_wait_overload` (without waiting duration).
 - The connection (*batchCommandsClient*) is chosen round-robinly, we try to acquire a lock before using the connection. *no available connections* might be reported if we cannot find such a connection, such an event is counted by `tidb_tikvclient_batch_client_no_available_connection_total`.
 
+### Batch Recv Loop
+
 ```railroad
 Diagram(
-  Comment("recv"),
   OneOrMore(
     Sequence(
       NonTerminal("Recv batch response from stream client"),

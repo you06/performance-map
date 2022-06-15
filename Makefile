@@ -1,8 +1,9 @@
 TEMPLATE_VERSION := perfmap
+PAGES := $(shell find src -name '*.md' | sed -e 's/^src/dist/g' -e 's/md$$/html/g')
 
 .PHONY: build clean FORCE
 
-build: dist/tidb-query-duration.html dist/tidb-kv-client.html
+build: $(PAGES)
 
 clean:
 	@rm -rfv dist
