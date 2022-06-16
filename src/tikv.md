@@ -202,3 +202,11 @@ Diagram(
 - The append log is observed as `tikv_raftstore_append_log_duration_seconds_bucket`
 - The apply wait is observed as `tikv_raftstore_apply_wait_time_duration_secs_bucket`.
 - The apply log is observed as `tikv_raftstore_apply_log_duration_seconds_bucket`.
+
+#### Log Engine Write
+
+TODO
+
+#### KV Engine Write
+
+TODO
