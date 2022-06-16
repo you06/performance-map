@@ -198,7 +198,7 @@ Diagram(
 ```
 
 - The propose wait is observed as `tikv_raftstore_request_wait_time_duration_secs_bucket`.
-- The commit log wait is observed as tikv_raftstore_store_wf_commit_log_duration_seconds_bucket`.
+- The commit log wait is observed as `tikv_raftstore_store_wf_commit_log_duration_seconds_bucket`.
 - The append log is observed as `tikv_raftstore_append_log_duration_seconds_bucket`
 - The apply wait is observed as `tikv_raftstore_apply_wait_time_duration_secs_bucket`.
 - The apply log is observed as `tikv_raftstore_apply_log_duration_seconds_bucket`.
