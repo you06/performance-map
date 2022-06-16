@@ -59,7 +59,69 @@ Diagram(
 
 ## Txn KV: Commit
 
-TODO
+```railroad
+Diagram(
+  NonTerminal("Init keys and mutations"),
+  Choice(
+    1,
+    Sequence(
+      Comment("err"),
+      NonTerminal("Async pessimistic rollback"),
+    ),
+    Comment("no mutation"),
+    Sequence(
+      Optional(NonTerminal("Local latch wait"), "skip"),
+      NonTerminal("Execute commit protocol", {href: "#commit-protocol"}),
+    ),
+  ),
+)
+```
+
+- The duration is obeserved as `tidb_tikvclient_txn_cmd_duration_seconds{type="commit"}`.
+- There is a local-latch-wait duration if the transaction is optimisitc and local-latches are enabled, which is obeserved as `tidb_tikvclient_local_latch_wait_seconds`.
+
+### Commit protocol
+
+```railroad
+Diagram(
+  Stack(
+    Sequence(
+      Choice(
+        0,
+        Comment("use 2pc or causal consistency"),
+        NonTerminal("Get min-commit-ts"),
+      ),
+      Optional("Async prewrite binlog", "skip"),
+      NonTerminal("Prewrite mutations", {href: "#do-action-on-mutations"}),
+      Optional("Wait prewrite binlog result", "skip"),
+    ),
+    Sequence(
+      Choice(
+        1,
+        Comment("1pc"),
+        Sequence(
+          Comment("2pc"),
+          NonTerminal("Get commit-ts"),
+          NonTerminal("Check schema (try to amend if needed)"),
+          NonTerminal("Commit mutations", {href: "#do-action-on-mutations"}),
+        ),
+        Sequence(
+          Comment("async-commit"),
+          NonTerminal("Commit mutations asynchronously", {href: "#do-action-on-mutations"}),
+        ),
+      ),
+      Choice(
+        0,
+        Comment("committed"),
+        NonTerminal("Async cleanup"),
+      ),
+      Optional("Commit binlog", "skip"),
+    ),
+  ),
+)
+```
+
+- Spans are recorded in `CommitDetails` which can be extracted from slow log.
 
 ## Txn KV: Rollback
 
@@ -104,7 +166,17 @@ Diagram(
 
 ### Batch Executor
 
-TODO
+```railroad
+Diagram(
+  OneOrMore(
+    Sequence(
+      NonTerminal("Wait for next rate-limit token"),
+      NonTerminal("Fork a goroutine to apply single batch action concurrently"),
+    ),
+    Comment("for each batch"),
+  ),
+)
+```
 
 ### Action: Pessimistic Lock
 
