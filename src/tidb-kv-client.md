@@ -243,8 +243,9 @@ Diagram(
         NonTerminal("Fetch more requests"),
       ),
       NonTerminal("Select a connection"),
-      NonTerminal("Build a batch request and send it"),
+      NonTerminal("Build a batch request and put it to the sending buffer"),
     ),
+    Comment("async send by grpc and process next pending requests"),
   ),
 )
 ```
@@ -252,6 +253,7 @@ Diagram(
 - Duraion of each iteration is obeserved as `tidb_tikvclient_batch_send_latency` (exclude waiting for the first request).
 - If the target TiKV is overload, more requests may be collected for sending. The event is only counted by `tidb_tikvclient_batch_wait_overload` (without waiting duration).
 - The connection (*batchCommandsClient*) is chosen round-robinly, we try to acquire a lock before using the connection. *no available connections* might be reported if we cannot find such a connection, such an event is counted by `tidb_tikvclient_batch_client_no_available_connection_total`.
+- GRPC itself maintains control buffers for stream clients and requests are actually sended asynchronously. This kind of duration is hard to obeserved.
 
 ### Batch Recv Loop
 
