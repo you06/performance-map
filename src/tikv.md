@@ -2,9 +2,11 @@
 
 
 ## TODOs
-- [ ] grpc entry
-- [ ] async-io execution path
-- [ ] raft-engine execution details
+- [ ] Add grpc entry path details
+- [ ] Add async-io execution path details
+- [ ] Add new request tracker related information
+- [ ] Add raft-engine execution details
+- [ ] Add kv engine details to the important stages such as `append_log`
 
 ## Grpc Entry
 TODO
