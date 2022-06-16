@@ -109,7 +109,7 @@ Diagram(
       NonTerminal("Local Read"),
     ),
     Sequence(
-      NonTerminal("Propose Wati"),
+      NonTerminal("Propose Wait"),
        Sequence(
          NonTerminal("Read index Read Wait"),
       ),
@@ -121,9 +121,82 @@ Diagram(
 )
 ```
 
-- The 
+- The number of local read requests rejected is observed as `tikv_raftstore_local_read_reject_total`. If most of the requests are rejected by local reader the
+  performance would be bad.
+- The duration of the read index wait could be regarded as `tikv_raftstore_commit_log_duration_seconds_bucket`. 
+
+TODO: Maybe it's useful to record the read index wait duration in the tracker for slow query diagnose.
+
 
 ## TxnKV Write
 
+```railroad
+Diagram(
+  Sequence(
+      NonTerminal("Grpc Receive"),
+  ),
+  Sequence(
+    NonTerminal("Acquire Latch For Keys"),
+  ),
+  Choice(
+    0,
+    Sequence(
+      NonTerminal("Get Snapshot From KV Engine Local Read"),
+    ),
+    Sequence(
+      NonTerminal("Get Snapshot From KV Engine Leader Confirm"),
+    ),
+  ),
+  
+  Choice(
+    0,
+    NonTerminal("Process Write Requests"),
+  ),
+  Choice(
+    0,
+    NonTerminal("Async Write"),
+  ),
+  Sequence(
+      NonTerminal("Grpc Response"),
+  ),
+)
+```
+
+- The latch acquisition is observed as `TiKV_scheduler_latch_wait_duration_seconds{type=xxx}`.
+- The write command processing may needs to read related from engine first.
+- The async write stage includes both transaction log consistency and state machine apply, it's observed as `tikv_storage_engine_async_request_duration_seconds{type=write}`.
 
 
+
+### TxnKV Async Write
+
+``` railroad
+Diagram(
+  Sequence(
+      NonTerminal("Propose Wait"),
+  ),
+  Choice(
+    0,
+    Sequence(
+      NonTerminal("Append Log"),
+    ),
+    Sequence(
+      NonTerminal("Commit Log Wait"),
+    ),
+  ),
+  
+  Choice(
+    0,
+    NonTerminal("Apply Wait"),
+  ),
+  Sequence(
+      NonTerminal("Apply Log"),
+  ),
+)
+```
+
+- The propose wait is observed as `tikv_raftstore_request_wait_time_duration_secs_bucket`.
+- The commit log wait is observed as tikv_raftstore_store_wf_commit_log_duration_seconds_bucket`.
+- The append log is observed as `tikv_raftstore_append_log_duration_seconds_bucket`
+- The apply wait is observed as `tikv_raftstore_apply_wait_time_duration_secs_bucket`.
+- The apply log is observed as `tikv_raftstore_apply_log_duration_seconds_bucket`.
