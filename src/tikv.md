@@ -86,7 +86,7 @@ Diagram(
 - The cop task has to wait for worker resources and snapshot fetch:
   - The cop task wait schedule duration is observed as `tikv_coprocessor_request_wait_seconds{type="schedule"}`. Also this duration is
     recorded in the request tracker as `schedule_wait_time`.
-  - The The cop handler build time is observed as `tikv_coprocessor_request_handler_build_seconds{type="req"}`. Also it's recorded in the request 
+  - The cop handler build time is observed as `tikv_coprocessor_request_handler_build_seconds{type="req"}`. Also it's recorded in the request 
     tracker as `handler_build_time`.
   - The total wait time is observed as `tikv_coprocessor_request_wait_seconds{type="all"}`
 - The cop task execution time is observed as `tikv_coprocessor_request_handle_seconds{type="req"}`. Also is recorded in the request tracker as 
