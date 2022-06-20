@@ -94,7 +94,7 @@ Diagram(
   - The The cop handler build time is observed as `tikv_coprocessor_request_handler_build_seconds{type="req"}`. Also it's recorded in the request 
     tracker as `handler_build_time`.
   - The total wait time is observed as `tikv_coprocessor_request_wait_seconds{type="all"}`
-- The cop task execution time is observed as `tikv_coprocessor_request_handle_seconds{type="req"}`. Also is's recorded in the request tracker as 
+- The cop task execution time is observed as `tikv_coprocessor_request_handle_seconds{type="req"}`. Also is recorded in the request tracker as 
   `req_lifetime`
   
 TODO: Build a detailed model describing the relationship bettween the user perceivable durations and the information recorded in the tracker. Then
