@@ -117,8 +117,6 @@ Diagram(
   performance would be bad.
 - The duration of the read index wait could be regarded as `tikv_raftstore_commit_log_duration_seconds_bucket`. 
 
-TODO: Maybe it's useful to record the read index wait duration in the tracker for slow query diagnose.
-
 
 ## TxnKV Write
 
