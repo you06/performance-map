@@ -2,12 +2,14 @@
 
 
 ## TODOs
-- [ ] Add grpc entry path details
-- [ ] Add async-io execution path details
-- [ ] Add new request tracker related information
-- [ ] Add raft-engine execution details
-- [ ] Add kv engine details to the important stages such as `append_log`
+- [ ] Add grpc entry path details.
+- [ ] Add async-io execution path details.
+- [ ] Add new request tracker related information.
+- [ ] Add raft-engine execution details.
+- [ ] Add kv engine details to the important stages such as `append_log`.
 - [ ] The coprocessor task latency and worker model relations.
+- [ ] Build a detailed model describing the relationship bettween the user perceivable durations and the information recorded in the tracker. Then
+it would be straightforward to tell the duration combinations of `cop scheduler`, `task wait`, `io operations like scan`.
 
 ## Grpc Entry
 TODO
@@ -21,14 +23,8 @@ Diagram(
   Sequence(
       NonTerminal("Grpc Receive"),
   ),
-  Choice(
-    0,
-    Sequence(
-      NonTerminal("Get Snapshot From KV Engine Local Read"),
-    ),
-    Sequence(
-      NonTerminal("Get Snapshot From KV Engine Leader Confirm"),
-    ),
+  Sequence(
+      NonTerminal("Snapshot Fetch"),
   ),
   Sequence(
     NonTerminal("Write Seek For The Target Key"),
@@ -92,9 +88,7 @@ Diagram(
   - The total wait time is observed as `tikv_coprocessor_request_wait_seconds{type="all"}`
 - The cop task execution time is observed as `tikv_coprocessor_request_handle_seconds{type="req"}`. Also is recorded in the request tracker as 
   `req_lifetime`
-  
-TODO: Build a detailed model describing the relationship bettween the user perceivable durations and the information recorded in the tracker. Then
-it would be straightforward to tell the duration combinations of `cop scheduler`, `task wait`, `io operations like scan`.
+ 
   
 
 ### Snapshot Fetch
@@ -136,16 +130,9 @@ Diagram(
   Sequence(
     NonTerminal("Acquire Latch For Keys"),
   ),
-  Choice(
-    0,
-    Sequence(
-      NonTerminal("Get Snapshot From KV Engine Local Read"),
-    ),
-    Sequence(
-      NonTerminal("Get Snapshot From KV Engine Leader Confirm"),
-    ),
-  ),
-  
+  Sequence(
+      NonTerminal("Snapshot Fetch"),
+  ),  
   Choice(
     0,
     NonTerminal("Process Write Requests"),
@@ -195,7 +182,7 @@ Diagram(
 
 - The propose wait is observed as `tikv_raftstore_request_wait_time_duration_secs_bucket`.
 - The commit log wait is observed as `tikv_raftstore_store_wf_commit_log_duration_seconds_bucket`.
-- The append log is observed as `tikv_raftstore_append_log_duration_seconds_bucket`
+- The append log is observed as `tikv_raftstore_append_log_duration_seconds_bucket`.
 - The apply wait is observed as `tikv_raftstore_apply_wait_time_duration_secs_bucket`.
 - The apply log is observed as `tikv_raftstore_apply_log_duration_seconds_bucket`.
 
