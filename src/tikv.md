@@ -38,7 +38,8 @@ Diagram(
   ),
   Choice(
     0,
-    Comment("Load Row Value from default cf"),
+    NonTerminal("Load Row Value from default cf"),
+    Comment("Already Load From Write CF"),
   ),
   Sequence(
       NonTerminal("Grpc Response"),
@@ -58,14 +59,8 @@ Diagram(
   Sequence(
       NonTerminal("Grpc Receive"),
   ),
-  Choice(
-    0,
-    Sequence(
-      NonTerminal("Get Snapshot From KV Engine Local Read"),
-    ),
-    Sequence(
-      NonTerminal("Get Snapshot From KV Engine Leader Confirm"),
-    ),
+  Sequence(
+      NonTerminal("Snapshot Fetch"),
   ),
   Sequence(
     NonTerminal("Cop Task Wait Schedule"),
