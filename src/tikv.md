@@ -7,6 +7,7 @@
 - [ ] Add new request tracker related information
 - [ ] Add raft-engine execution details
 - [ ] Add kv engine details to the important stages such as `append_log`
+- [ ] The coprocessor task latency and worker model relations.
 
 ## Grpc Entry
 TODO
