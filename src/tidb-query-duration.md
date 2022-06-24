@@ -2,8 +2,8 @@
 
 ```railroad
 Diagram(
-  NonTerminal("Receive packet from the client", {href: "#receive-packet-from-the-client"}),
-  NonTerminal("Process query in TiDB (include TiKV)", {href: "#process-query-in-tidb-include-tikv"}),
+  Span("Receive packet from the client", {href: "#receive-packet-from-the-client"}),
+  Span("Process query in TiDB (include TiKV)", {href: "#process-query-in-tidb-include-tikv"}),
 )
 ```
 
@@ -14,11 +14,11 @@ Diagram(
 
 ```railroad
 Diagram(
-  NonTerminal("Write system call duration in client"),
-  NonTerminal("Network duration"),
-  NonTerminal("Parsing TCP protocol duration"),
-  NonTerminal("Schedule TiDB conn duration"),
-  NonTerminal("Copy packet into user space duration"),
+  Span("Write system call duration in client"),
+  Span("Network duration"),
+  Span("Parsing TCP protocol duration"),
+  Span("Schedule TiDB conn duration"),
+  Span("Copy packet into user space duration"),
 )
 ```
 
@@ -32,24 +32,24 @@ Diagram(
 
 ```railroad
 Diagram(
-  NonTerminal("Token wait duration", {cls: "with-metrics"}),
+  Span("Token wait duration", {color: "green", tooltip: "tidb_server_get_token_duration_seconds"}),
   Choice(
     0,
     Comment("Prepared statement"),
-    NonTerminal("Parse duration", {cls: "with-metrics"}),
+    Span("Parse duration", {color: "green", tooltip: "tidb_session_parse_duration_seconds"}),
   ),
   OneOrMore(
     Sequence(
       Choice(
         0,
-        NonTerminal('Optimize prepared plan duration'),
+        Span('Optimize prepared plan duration'),
         Sequence(
           Comment('Plan cache miss'),
-          NonTerminal('Compile duration', {cls: "with-metrics"}),
+          Span('Compile duration', {color: "green", tooltip: "tidb_session_compile_duration_seconds"}),
         ),
       ),
-      NonTerminal("TSO wait duration", {cls: "with-metrics"}),
-      NonTerminal("Execution duration", {href: "#execution-duration", cls: "with-metrics"}),
+      Span("TSO wait duration", {color: "green", tooltip: "tidb_tikvclient_ts_future_wait_seconds"}),
+      Span("Execution duration", {href: "#execution-duration", color: "green", tooltip: "tidb_session_execute_duration_seconds"}),
     ),
     Comment("Retry"),
   ),
@@ -74,26 +74,26 @@ Diagram(
       Comment("Read"),
       OneOrMore(
         Sequence(
-          NonTerminal("Read next"),
-          NonTerminal("Write result to client"),
+          Span("Read next"),
+          Span("Write result to client"),
         ),
         Comment("drain the result set"),
       ),
     ),
     Sequence(
       Comment("Write"),
-      NonTerminal("Execute write"),
+      Span("Execute write"),
       Choice(
         0,
-        NonTerminal("Pessimistic lock"),
+        Span("Pessimistic lock"),
         Comment("Optimisitc mode"),
       ),
       Choice(
         0,
-        NonTerminal("Commit"),
+        Span("Commit"),
         Comment("Explicit transaction"),
       ),
-      NonTerminal("Write result to client"),
+      Span("Write result to client"),
     ),
   ),
 )
