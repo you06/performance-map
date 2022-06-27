@@ -21,25 +21,25 @@ TODO
 ```railroad
 Diagram(
   Sequence(
-      NonTerminal("Grpc Receive"),
+      Span("Grpc Receive"),
   ),
   Sequence(
-      NonTerminal("Snapshot Fetch"),
+      Span("Snapshot Fetch"),
   ),
   Sequence(
-    NonTerminal("Write Seek For The Target Key"),
+    Span("Write Seek For The Target Key"),
   ),
   Choice(
     0,
-    NonTerminal("Load Key Value from the Key"),
+    Span("Load Key Value from the Key"),
   ),
   Choice(
     0,
-    NonTerminal("Load Row Value from default cf"),
+    Span("Load Row Value from default cf"),
     Comment("Already Load From Write CF"),
   ),
   Sequence(
-      NonTerminal("Grpc Response"),
+      Span("Grpc Response"),
   ),
 )
 ```
@@ -54,42 +54,42 @@ Diagram(
 ```railroad
 Diagram(
   Sequence(
-      NonTerminal("Grpc Receive"),
+      Span("Grpc Receive"),
   ),
   Sequence(
-      NonTerminal("Snapshot Fetch"),
+      Span("Snapshot Fetch"),
   ),
   Sequence(
-    NonTerminal("Cop Task Wait Schedule"),
+    Span("Cop Task Wait Schedule"),
   ),
   Sequence(
-    NonTerminal("Cop Handler Build"),
+    Span("Cop Handler Build"),
   ),
   Sequence(
-    NonTerminal("Cop Task Execution"),
+    Span("Cop Task Execution"),
   ),
   Choice(
     0,
-    NonTerminal("ResultSet To Chunk Format"),
+    Span("ResultSet To Chunk Format"),
   ),
   Sequence(
-      NonTerminal("Grpc Response"),
+      Span("Grpc Response"),
   ),
 )
 ```
 
-- The snapshot get duration is observed as `tikv_storage_engine_async_request_duration_seconds_bucket{type="snapshot"}` and 
+- The snapshot get duration is observed as `tikv_storage_engine_async_request_duration_seconds_bucket{type="snapshot"}` and
   `tikv_coprocessor_request_wait_seconds{type="snapshot"}`. Also this duration is recorded in the request tracker as `snapshot_wait_time`.
 - The cop task has to wait for worker resources and snapshot fetch:
   - The cop task wait schedule duration is observed as `tikv_coprocessor_request_wait_seconds{type="schedule"}`. Also this duration is
     recorded in the request tracker as `schedule_wait_time`.
-  - The cop handler build time is observed as `tikv_coprocessor_request_handler_build_seconds{type="req"}`. Also it's recorded in the request 
+  - The cop handler build time is observed as `tikv_coprocessor_request_handler_build_seconds{type="req"}`. Also it's recorded in the request
     tracker as `handler_build_time`.
   - The total wait time is observed as `tikv_coprocessor_request_wait_seconds{type="all"}`
-- The cop task execution time is observed as `tikv_coprocessor_request_handle_seconds{type="req"}`. Also is recorded in the request tracker as 
+- The cop task execution time is observed as `tikv_coprocessor_request_handle_seconds{type="req"}`. Also is recorded in the request tracker as
   `req_lifetime`
- 
-  
+
+
 
 ### Snapshot Fetch
 
@@ -98,24 +98,24 @@ Diagram(
   Choice(
     0,
     Sequence(
-      NonTerminal("Local Read"),
+      Span("Local Read"),
     ),
     Sequence(
-      NonTerminal("Propose Wait"),
+      Span("Propose Wait"),
        Sequence(
-         NonTerminal("Read index Read Wait"),
+         Span("Read index Read Wait"),
       ),
     ),
   ),
   Sequence(
-      NonTerminal("Fetch A Snapshot From KV Engine"),
+      Span("Fetch A Snapshot From KV Engine"),
   ),
 )
 ```
 
 - The number of local read requests rejected is observed as `tikv_raftstore_local_read_reject_total`. If most of the requests are rejected by local reader the
   performance would be bad.
-- The duration of the read index wait could be regarded as `tikv_raftstore_commit_log_duration_seconds_bucket`. 
+- The duration of the read index wait could be regarded as `tikv_raftstore_commit_log_duration_seconds_bucket`.
 
 
 ## TxnKV Write
@@ -123,24 +123,24 @@ Diagram(
 ```railroad
 Diagram(
   Sequence(
-      NonTerminal("Grpc Receive"),
+      Span("Grpc Receive"),
   ),
   Sequence(
-    NonTerminal("Acquire Latch For Keys"),
+    Span("Acquire Latch For Keys"),
   ),
   Sequence(
-      NonTerminal("Snapshot Fetch"),
-  ),  
-  Choice(
-    0,
-    NonTerminal("Process Write Requests"),
+      Span("Snapshot Fetch"),
   ),
   Choice(
     0,
-    NonTerminal("Async Write"),
+    Span("Process Write Requests"),
+  ),
+  Choice(
+    0,
+    Span("Async Write"),
   ),
   Sequence(
-      NonTerminal("Grpc Response"),
+      Span("Grpc Response"),
   ),
 )
 ```
@@ -156,24 +156,24 @@ Diagram(
 ``` railroad
 Diagram(
   Sequence(
-      NonTerminal("Propose Wait"),
+      Span("Propose Wait"),
   ),
   Choice(
     0,
     Sequence(
-      NonTerminal("Append Log"),
+      Span("Append Log"),
     ),
     Sequence(
-      NonTerminal("Commit Log Wait"),
+      Span("Commit Log Wait"),
     ),
   ),
-  
+
   Choice(
     0,
-    NonTerminal("Apply Wait"),
+    Span("Apply Wait"),
   ),
   Sequence(
-      NonTerminal("Apply Log"),
+      Span("Apply Log"),
   ),
 )
 ```

@@ -15,7 +15,7 @@
 
 ```railroad
 Diagram(
-  NonTerminal("Wait start-ts ready"),
+  Span("Wait start-ts ready", {color: "green", tooltip: "tidb_tikvclient_ts_future_wait_seconds"}),
 )
 ```
 
@@ -25,24 +25,24 @@ Diagram(
 
 ```railroad
 Diagram(
-  NonTerminal("Filter and deduplicate keys"),
+  Span("Filter and deduplicate keys"),
   Choice(
     0,
     Sequence(
-      NonTerminal("Apply pessimistic-lock on mutations", {href: "#do-action-on-mutations"}),
+      Span("Apply pessimistic-lock on mutations", {href: "#do-action-on-mutations"}),
       Choice(
         0,
         Sequence(
           Comment("ok"),
-          NonTerminal("Update key flags in membuf"),
+          Span("Update key flags in membuf"),
         ),
         Sequence(
           Comment("err"),
           Choice(
             0,
             Comment("failed to lock 1 key"),
-            Sequence(Comment("deadlock"), NonTerminal("pessimistic rollback")),
-            NonTerminal("Async pessimistic rollback"),
+            Sequence(Comment("deadlock"), Span("Pessimistic rollback")),
+            Span("Async pessimistic rollback"),
           ),
         ),
       ),
@@ -61,17 +61,17 @@ Diagram(
 
 ```railroad
 Diagram(
-  NonTerminal("Init keys and mutations"),
+  Span("Init keys and mutations"),
   Choice(
     1,
     Sequence(
       Comment("err"),
-      NonTerminal("Async pessimistic rollback"),
+      Span("Async pessimistic rollback"),
     ),
     Comment("no mutation"),
     Sequence(
-      Optional(NonTerminal("Local latch wait"), "skip"),
-      NonTerminal("Execute commit protocol", {href: "#commit-protocol"}),
+      Optional(Span("Local latch wait", {color: "green", tooltip: "tidb_tikvclient_local_latch_wait_seconds"}), "skip"),
+      Span("Execute commit protocol", {href: "#commit-protocol"}),
     ),
   ),
 )
@@ -89,10 +89,10 @@ Diagram(
       Choice(
         0,
         Comment("use 2pc or causal consistency"),
-        NonTerminal("Get min-commit-ts"),
+        Span("Get min-commit-ts"),
       ),
       Optional("Async prewrite binlog", "skip"),
-      NonTerminal("Prewrite mutations", {href: "#do-action-on-mutations"}),
+      Span("Prewrite mutations", {href: "#do-action-on-mutations"}),
       Optional("Wait prewrite binlog result", "skip"),
     ),
     Sequence(
@@ -101,19 +101,19 @@ Diagram(
         Comment("1pc"),
         Sequence(
           Comment("2pc"),
-          NonTerminal("Get commit-ts"),
-          NonTerminal("Check schema (try to amend if needed)"),
-          NonTerminal("Commit mutations", {href: "#do-action-on-mutations"}),
+          Span("Get commit-ts"),
+          Span("Check schema (try to amend if needed)"),
+          Span("Commit mutations", {href: "#do-action-on-mutations"}),
         ),
         Sequence(
           Comment("async-commit"),
-          NonTerminal("Commit mutations asynchronously", {href: "#do-action-on-mutations"}),
+          Span("Commit mutations asynchronously", {href: "#do-action-on-mutations"}),
         ),
       ),
       Choice(
         0,
         Comment("committed"),
-        NonTerminal("Async cleanup"),
+        Span("Async cleanup"),
       ),
       Optional("Commit binlog", "skip"),
     ),
@@ -129,7 +129,7 @@ Diagram(
 Diagram(
   Choice(
     0,
-    NonTerminal("Rollback pessimistic locks"),
+    Span("Rollback pessimistic locks"),
     Comment("optimisitc or no key locked"),
   )
 )
@@ -145,16 +145,16 @@ Diagram(
 Diagram(
   Stack(
     Sequence(
-      NonTerminal("Group mutations by region"),
-      Optional(NonTerminal("Pre-split and re-group"), "skip"),
-      NonTerminal("Group mutations by batch"),
+      Span("Group mutations by region"),
+      Optional(Span("Pre-split and re-group"), "skip"),
+      Span("Group mutations by batch"),
     ),
     Sequence(
-      Optional(NonTerminal("Apply action on primary batch"), "skip"),
+      Optional(Span("Apply action on primary batch"), "skip"),
       Choice(
         0,
-        NonTerminal("Apply action on rest batches", {href: "#batch-executor"}),
-        NonTerminal("Commit secondary batches asynchronously", {href: "#batch-executor"}),
+        Span("Apply action on rest batches", {href: "#batch-executor"}),
+        Span("Commit secondary batches asynchronously", {href: "#batch-executor"}),
       ),
     ),
   ),
@@ -170,8 +170,8 @@ Diagram(
 Diagram(
   OneOrMore(
     Sequence(
-      NonTerminal("Wait for next rate-limit token"),
-      NonTerminal("Fork a goroutine to apply single batch action concurrently"),
+      Span("Wait for next rate-limit token"),
+      Span("Fork a goroutine to apply single batch action concurrently"),
     ),
     Comment("for each batch"),
   ),
@@ -203,21 +203,21 @@ TODO
 
 ```railroad
 Diagram(
-  NonTerminal("Get conn pool to the target store"),
+  Span("Get conn pool to the target store"),
   Choice(
     0,
     Sequence(
       Comment("Batch enabled"),
-      NonTerminal("Push request to channel", {href: "#batch-send-loop", cls: "with-metrics"}),
-      NonTerminal("Wait response", {href: "#batch-recv-loop"}),
+      Span("Push request to channel", {href: "#batch-send-loop", color: "green", tooltip: "tidb_tikvclient_batch_wait_duration"}),
+      Span("Wait response", {href: "#batch-recv-loop"}),
     ),
     Sequence(
-      NonTerminal("Get conn from pool"),
-      NonTerminal("Call RPC"),
+      Span("Get conn from pool"),
+      Span("Call RPC"),
       Choice(
         0,
         Comment("Unary call"),
-        NonTerminal("Recv first"),
+        Span("Recv first"),
       ),
     ),
   ),
@@ -236,14 +236,14 @@ Diagram(
 Diagram(
   OneOrMore(
     Sequence(
-      NonTerminal("Fetch pending requests"),
+      Span("Fetch pending requests"),
       Choice(
         0,
         Comment("tikv is not overload"),
-        NonTerminal("Fetch more requests"),
+        Span("Fetch more requests"),
       ),
-      NonTerminal("Select a connection"),
-      NonTerminal("Build a batch request and put it to the sending buffer"),
+      Span("Select a connection"),
+      Span("Build a batch request and put it to the sending buffer"),
     ),
     Comment("async send by grpc and process next pending requests"),
   ),
@@ -261,8 +261,8 @@ Diagram(
 Diagram(
   OneOrMore(
     Sequence(
-      NonTerminal("Recv batch response from stream client"),
-      NonTerminal("Deliver batched responses to corresponding request entries"),
+      Span("Recv batch response from stream client", {color: "green", tooltip: "tidb_tikvclient_batch_recv_latency"}),
+      Span("Deliver batched responses to corresponding request entries"),
     ),
   ),
 )
