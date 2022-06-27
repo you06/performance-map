@@ -271,3 +271,19 @@ Diagram(
 - There are `tikv-client.grpc-connection-count` (default: 4) connections established to each store, each with its own run loop for receiving responses from the corresponding stream client.
 - Recv duration is observed by `tidb_tikvclient_batch_recv_latency`, which may include a duration of waiting for more requests (call `recv` before actually sending any requests).
 - Responses are identified by request-id, the duration for delivering them can be omitted.
+
+## Resolve TSO
+
+```railroad
+Diagram(
+  Choice(
+    0,
+    Sequence(
+        Comment("Async TSO is not ready"),
+        NonTerminal("Wait the response of TSO request"),
+    ),
+    Comment("Async TSO is ready"),
+  ),
+
+)
+```
