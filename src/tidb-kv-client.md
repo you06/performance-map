@@ -284,6 +284,22 @@ Diagram(
     ),
     Comment("Async TSO is ready"),
   ),
+)
+```
 
+## Region cache
+
+### Load region cache
+
+```railroad
+Diagram(
+  Choice(
+    0,
+    Comment("cache valid"),
+    OneOrMore(
+      Span("Load region cache from PD"),
+      Comment("retry")
+    )
+  )
 )
 ```

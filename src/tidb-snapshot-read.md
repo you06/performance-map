@@ -6,22 +6,22 @@ TiDB implement read queries by calling get, batchget, scan of snapshot, and copr
 
 ```railroad
 Diagram(
-    OneOrMore(
-        Sequence(
-            NonTerminal("Load region cache"),
-            NonTerminal("Send request and wait for response", {href: "tidb-kv-client#send-request"}),
-        ),
-        Choice(
-            0,
-            Sequence(
-                Comment("Lock error"),
-                NonTerminal("Resolve lock"),
-                Comment("Retry"),
-            ),
-            Comment("Region error, Invalid region cache & Retry"),
-            Comment("Retry"),
-        ),
+  OneOrMore(
+    Sequence(
+      Span("Load region cache", {href: "tidb-kv-client#load-region-cache"}),
+      Span("Send request and wait for response", {href: "tidb-kv-client#send-request"}),
     ),
+    Choice(
+      0,
+      Sequence(
+        Comment("Lock error"),
+        Span("Resolve lock"),
+        Comment("Retry"),
+      ),
+      Comment("Region error, Invalid region cache & Retry"),
+      Comment("Retry"),
+    ),
+  ),
 )
 ```
 
@@ -29,29 +29,52 @@ Diagram(
 
 ```railroad
 Diagram(
-    Stack(
+  Stack(
+    Sequence(
+      Span("Group keys into batches by regions"),
+      Comment("For each batch"),
+    ),
+    Sequence(
+      OneOrMore(
         Sequence(
-            NonTerminal("Group keys into batches by regions"),
-            Comment("For each batch"),
+      Span("Load region cache", {href: "tidb-kv-client#load-region-cache"}),
+          Span("Send request and wait for response", {href: "tidb-kv-client#send-request"}),
         ),
-        Sequence(
-            OneOrMore(
-                Sequence(
-                    NonTerminal("Load region cache"),
-                    NonTerminal("Send request and wait for response", {href: "tidb-kv-client#send-request"}),
-                ),
-                Choice(
-                    0,
-                    Sequence(
-                        Comment("Lock error"),
-                        NonTerminal("Resolve lock"),
-                        Comment("Retry"),
-                    ),
-                    Comment("Region error, Invalid region cache & Retry"),
-                    Comment("Retry"),
-                ),
-            ),
+        Choice(
+          0,
+          Sequence(
+            Comment("Lock error"),
+            Span("Resolve lock"),
+            Comment("Retry"),
+          ),
+          Comment("Region error, Invalid region cache & Retry"),
+          Comment("Retry"),
         ),
-    )
+      ),
+    ),
+  )
+)
+```
+
+## Coprocessor Scan
+
+```railroad
+Diagram(
+  OneOrMore(
+    Sequence(
+      Span("Load region cache", {href: "tidb-kv-client#load-region-cache"}),
+      Span("Send request and wait for response", {href: "tidb-kv-client#send-request"}),
+    ),
+    Choice(
+      0,
+      Sequence(
+        Comment("Lock error"),
+        Span("Resolve lock"),
+        Comment("Retry"),
+      ),
+      Comment("Region error, Invalid region cache & Retry"),
+      Comment("Retry"),
+    ),
+  ),
 )
 ```
