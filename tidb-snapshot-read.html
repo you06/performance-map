@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<head>
+<title>
+TiDB Snapshot Read Duration
+</title>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/zyguan/railroad-diagrams@5e868a958ba52847e28b2adefc5dcd8b3172c58d/railroad.css'/>
+<style>
+  body {
+    background-color: hsl(30, 20%, 95%);
+  }
+  svg.railroad-diagram rect {
+    fill: rgb(245, 245, 245);
+  }
+  svg.railroad-diagram g.color-green rect {
+    fill: rgb(204, 255, 204);
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/zyguan/railroad-diagrams@5e868a958ba52847e28b2adefc5dcd8b3172c58d/railroad.umd.js"></script>
+</head>
+<body>
+
+<div id="railroad-tooltip" class="railroad-diagram-tooltip"></div>
+<div id="CONTENT"></div>
+<script id="MARKDOWN" type="text/plain">
+# TiDB Snapshot Read Duration
+
+TiDB implement read queries by calling get, batchget, scan of snapshot, and coprocessor requests, this section describe the duration of snapshot reads.
+
+## Get
+
+```railroad
+Diagram(
+  OneOrMore(
+    Sequence(
+      Span("Load region cache", {href: "tidb-kv-client#load-region-cache"}),
+      Span("Send request and wait for response", {href: "tidb-kv-client#send-request"}),
+    ),
+    Choice(
+      0,
+      Sequence(
+        Comment("Lock error"),
+        Span("Resolve lock"),
+        Comment("Retry"),
+      ),
+      Comment("Region error, Invalid region cache & Retry"),
+      Comment("Retry"),
+    ),
+  ),
+)
+```
+
+## BatchGet
+
+```railroad
+Diagram(
+  Stack(
+    Sequence(
+      Span("Group keys into batches by regions"),
+      Comment("For each batch"),
+    ),
+    Sequence(
+      OneOrMore(
+        Sequence(
+      Span("Load region cache", {href: "tidb-kv-client#load-region-cache"}),
+          Span("Send request and wait for response", {href: "tidb-kv-client#send-request"}),
+        ),
+        Choice(
+          0,
+          Sequence(
+            Comment("Lock error"),
+            Span("Resolve lock"),
+            Comment("Retry"),
+          ),
+          Comment("Region error, Invalid region cache & Retry"),
+          Comment("Retry"),
+        ),
+      ),
+    ),
+  )
+)
+```
+
+## Coprocessor Scan
+
+```railroad
+Diagram(
+  OneOrMore(
+    Sequence(
+      Span("Load region cache", {href: "tidb-kv-client#load-region-cache"}),
+      Span("Send request and wait for response", {href: "tidb-kv-client#send-request"}),
+    ),
+    Choice(
+      0,
+      Sequence(
+        Comment("Lock error"),
+        Span("Resolve lock"),
+        Comment("Retry"),
+      ),
+      Comment("Region error, Invalid region cache & Retry"),
+      Comment("Retry"),
+    ),
+  ),
+)
+```
+</script>
+
+<script>
+  // export railroad defaults
+  Object.entries(railroad.default).forEach(([k, v]) => globalThis[k] = v);
+  // aliases
+  function Span(text, {href, tooltip, color}={}) {
+    return NonTerminal(text, {href: href, tooltip: tooltip, cls: `color-${color}`})
+  }
+
+  // render markdown
+  class Renderer extends marked.Renderer {
+    constructor(options) {
+      super(options);
+      this.postActions = [];
+    }
+    code(text, lang, escaped) {
+      if (lang != 'railroad') {
+        return super.code(text, lang, escaped);
+      } else {
+        const id = `railroad-${window.crypto.getRandomValues(new Uint32Array(1))[0].toString(16)}`;
+        this.postActions.push(function() {
+          const src = document.createElement('script');
+          src.innerHTML = `${text}.addTo(document.getElementById('${id}'), {tooltip: document.getElementById('railroad-tooltip')})`;
+          document.body.appendChild(src);
+        });
+        return `<div id=${id}></div>\n`;
+      }
+    }
+  }
+
+  marked.setOptions({ renderer: new Renderer() });
+  document.getElementById('CONTENT').innerHTML = marked.parse(document.getElementById('MARKDOWN').innerText);
+  marked.defaults.renderer.postActions.forEach(fn => fn());
+</script>
+
+</body>

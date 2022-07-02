@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<head>
+<title>
+TiDB Read Duration
+</title>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/zyguan/railroad-diagrams@5e868a958ba52847e28b2adefc5dcd8b3172c58d/railroad.css'/>
+<style>
+  body {
+    background-color: hsl(30, 20%, 95%);
+  }
+  svg.railroad-diagram rect {
+    fill: rgb(245, 245, 245);
+  }
+  svg.railroad-diagram g.color-green rect {
+    fill: rgb(204, 255, 204);
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/zyguan/railroad-diagrams@5e868a958ba52847e28b2adefc5dcd8b3172c58d/railroad.umd.js"></script>
+</head>
+<body>
+
+<div id="railroad-tooltip" class="railroad-diagram-tooltip"></div>
+<div id="CONTENT"></div>
+<script id="MARKDOWN" type="text/plain">
+# TiDB Read Duration
+
+TiDB read by calling `Next` on cascade executors. So here we dig into the data source executors which actually cause the latency.
+
+## Point get
+
+```railroad
+Diagram(
+  Choice(
+    0,
+    Span("Resolve TSO", {href: "tidb-kv-client#resolve-tso"}),
+    Comment("Read by clustered PK"),
+  ),
+  Choice(
+    0,
+    Span("Read handle by index key", {href: "tidb-snapshot-read#get"}),
+    Comment("Read by clustered PK, encode handle by key"),
+  ),
+  Span("Read value by handle", {href: "tidb-snapshot-read#get"}),
+)
+```
+
+## Batch Point get
+
+```railroad
+Diagram(
+  Span("Resolve TSO", {href: "tidb-kv-client#resolve-tso"}),
+  Choice(
+    0,
+    Span("Read all handles by index keys", {href: "tidb-snapshot-read#batch-get"}),
+    Comment("Read by clustered PK, encode handle by keys"),
+  ),
+  Span("Read values by handles", {href: "tidb-snapshot-read#batch-get"}),
+)
+```
+
+Similar with point get, but batch point get has no change to skip resolving timestamp.
+
+## Table Scan & Index Scan
+
+```railroad
+Diagram(
+  Stack(
+    Span("Resolve TSO", {href: "tidb-kv-client#resolve-tso"}),
+    Span("Load region cache for related table/index ranges"),
+    OneOrMore(
+      Sequence(
+        Span("Wait for result", {href: "tidb-snapshot-read#coprocessor-scan"}),
+      ),
+      Comment("Next loop: drain the result")
+    ),
+  )
+)
+```
+
+Table scan and index scan almost share the same code path,
+For table scan, TiDB split part of the ranges as an optional signed ranges, but here we skip it.
+
+## IndexLookUp
+
+
+```railroad
+Diagram(
+  Stack(
+    Span("Resolve TSO", {href: "tidb-kv-client#resolve-tso"}),
+    Span("Load region cache for related index ranges"),
+    OneOrMore(
+      Sequence(
+        Span("Wait for index scan result", {href: "tidb-snapshot-read#coprocessor-scan"}),
+        Span("Wait for table scan result", {href: "tidb-snapshot-read#coprocessor-scan"}),
+      ),
+      Comment("Next loop: drain the result")
+    ),
+  )
+)
+```
+
+Note if the index/table scan both are fast enough, they can be ready before we call `Next`, then wait will not take any time.
+</script>
+
+<script>
+  // export railroad defaults
+  Object.entries(railroad.default).forEach(([k, v]) => globalThis[k] = v);
+  // aliases
+  function Span(text, {href, tooltip, color}={}) {
+    return NonTerminal(text, {href: href, tooltip: tooltip, cls: `color-${color}`})
+  }
+
+  // render markdown
+  class Renderer extends marked.Renderer {
+    constructor(options) {
+      super(options);
+      this.postActions = [];
+    }
+    code(text, lang, escaped) {
+      if (lang != 'railroad') {
+        return super.code(text, lang, escaped);
+      } else {
+        const id = `railroad-${window.crypto.getRandomValues(new Uint32Array(1))[0].toString(16)}`;
+        this.postActions.push(function() {
+          const src = document.createElement('script');
+          src.innerHTML = `${text}.addTo(document.getElementById('${id}'), {tooltip: document.getElementById('railroad-tooltip')})`;
+          document.body.appendChild(src);
+        });
+        return `<div id=${id}></div>\n`;
+      }
+    }
+  }
+
+  marked.setOptions({ renderer: new Renderer() });
+  document.getElementById('CONTENT').innerHTML = marked.parse(document.getElementById('MARKDOWN').innerText);
+  marked.defaults.renderer.postActions.forEach(fn => fn());
+</script>
+
+</body>
