@@ -197,6 +197,38 @@ TODO
 
 TODO
 
+## Lock Resolver
+
+```railroad
+Diagram(
+  OneOrMore(
+    Sequence(
+      Comment("For lock in locks"),
+      Stack(
+        Sequence(
+          Span("Load region for PK", {href: "#load-region-cache"}),
+          Span("Load txn status", {href: "#send-request"}),
+        ),
+        Choice(
+          0,
+          Sequence(
+            Comment("read, async resolve lock")
+          ),
+          Sequence(
+            Comment("write"),
+            Span("Load region for lock", {href: "#load-region-cache"}),
+            Span("Resolve lock", {href: "#send-request"})
+          ),
+        ),
+      )
+    ),
+  )
+)
+```
+
+Read statements(does not include for-update read) resolve lock in a quick way,
+it only wait for checking txn status, and resolve lock in an asynchronous thread.
+
 ## RPC Client
 
 ### Send Request
@@ -208,7 +240,7 @@ Diagram(
     0,
     Sequence(
       Comment("Batch enabled"),
-      Span("Push request to channel", {href: "#batch-send-loop", color: "green", tooltip: "tidb_tikvclient_batch_wait_duration"}),
+      Span("Push request to channel", {href: "#batch-send-loop", color: "green", tooltip: "sum(rate(tidb_tikvclient_request_seconds_sum[1m])) by (instance, type) / sum(rate(tidb_tikvclient_request_seconds_count[1m])) by (instance, type)"}),
       Span("Wait response", {href: "#batch-recv-loop"}),
     ),
     Sequence(
@@ -230,6 +262,16 @@ Diagram(
 - The size of batch request channel is `tikv-client.max-batch-size` (default: 128), the duration of enqueue is observed as `tidb_tikvclient_batch_wait_duration`.
 - There are three kinds of stream request: CmdBatchCop, CmdCopStream, CmdMPPConn, which involve an additional recv call to fetch the first response from the stream.
 
+Though there is still some latency are missed observed, we can get this approximate formula.
+
+```
+tidb_tikvclient_request_seconds = 
+  tidb_tikvclient_batch_wait_duration +
+  tidb_tikvclient_batch_send_latency +
+  tikv_grpc_msg_duration_seconds +
+  network latency
+```
+
 ### Batch Send Loop
 
 ```railroad
@@ -250,7 +292,7 @@ Diagram(
 )
 ```
 
-- Duraion of each iteration is observed as `tidb_tikvclient_batch_send_latency` (exclude waiting for the first request).
+- Duraion of each iteration is observed as `tidb_tikvclient_batch_send_latency` (exclude waiting for the first request), which can be treated as the request encoding duration.
 - If the target TiKV is overload, more requests may be collected for sending. The event is only counted by `tidb_tikvclient_batch_wait_overload` (without waiting duration).
 - The connection (*batchCommandsClient*) is chosen round-robinly, we try to acquire a lock before using the connection. *no available connections* might be reported if we cannot find such a connection, such an event is counted by `tidb_tikvclient_batch_client_no_available_connection_total`.
 - GRPC itself maintains control buffers for stream clients and requests are actually sended asynchronously. This kind of duration is hard to observed.
@@ -279,13 +321,15 @@ Diagram(
   Choice(
     0,
     Sequence(
-        Comment("Async TSO is not ready"),
-        NonTerminal("Wait the response of TSO request"),
+      Comment("Async TSO is not ready"),
+      Span("Wait the response of TSO request", {color: "green", tooltip: "pd_client_cmd_handle_cmds_duration_seconds_bucket{type=\"wait\"}"}),
     ),
     Comment("Async TSO is ready"),
   ),
 )
 ```
+
+**Wait the response of TSO request**: see `pd_client_cmd_handle_cmds_duration_seconds_bucket{type="wait"}`, only the wait duration affect latency.
 
 ## Region cache
 
@@ -297,9 +341,11 @@ Diagram(
     0,
     Comment("cache valid"),
     OneOrMore(
-      Span("Load region cache from PD"),
+      Span("Load region cache from PD", {color: "green", tooltip: "tidb_tikvclient_load_region_cache_seconds{type=\"get_region_when_miss\"}"}),
       Comment("retry")
     )
   )
 )
 ```
+
+When loading region cache from PD, `tidb_tikvclient_region_cache_operations_total{type="get_region_when_miss"}` will be increased. The duration can be read from `tidb_tikvclient_load_region_cache_seconds{type="get_region_when_miss"}`.

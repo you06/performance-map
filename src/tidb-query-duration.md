@@ -14,18 +14,24 @@ Diagram(
 
 ```railroad
 Diagram(
-  Span("Write system call duration in client"),
-  Span("Network duration"),
-  Span("Parsing TCP protocol duration"),
-  Span("Schedule TiDB conn duration"),
-  Span("Copy packet into user space duration"),
+  Stack(
+    Sequence(
+      Span("Write system call duration in client"),
+      Span("Network duration"),
+      Span("Parsing TCP protocol duration")
+    ),
+    Sequence(
+      Span("Schedule TiDB conn duration", {color: "yellow"}),
+      Span("Copy packet into user space duration")
+    ),
+  )
 )
 ```
 
 - **Write system call duration in client**: Client send request into NIC by write system call.
 - **Network duration**: Network transmission duration.
 - **Parsing TCP protocol duration**: After server's NIC receiving the TCP request, system need to parse the packet for application usage.
-- **Schedule TiDB conn duration**: There are some cases that TiDB does not read packet from the connection immediately, such duration starts from writing OK package for last query and ends when it's ready to read the packet for current query.
+- **Schedule TiDB conn duration**: There are some cases that TiDB does not read packet from the connection immediately, such duration starts from writing OK package for last query and ends when it's ready to read the packet for current query. This latency happens mostly due to bad practice of blocking goroutine after writing OK packages, but it's extremely hard to investigate such issue. TODO: this latency may be well estimated.
 - **Copy packet into user space duration**: TiDB read packet from connection by read system call which will copy the packet into user space.
 
 # Process query in TiDB (include TiKV)
@@ -74,7 +80,7 @@ Diagram(
       Comment("Read"),
       OneOrMore(
         Sequence(
-          Span("Read next"),
+          Span("Read next", {href: "tidb-read-query"}),
           Span("Write result to client"),
         ),
         Comment("drain the result set"),
