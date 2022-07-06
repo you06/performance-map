@@ -14,6 +14,20 @@ TiDB Read Duration
   svg.railroad-diagram g.color-green rect {
     fill: rgb(204, 255, 204);
   }
+  svg.railroad-diagram g.color-yellow rect {
+    fill: rgb(254, 255, 204);
+  }
+  *:target {
+    background-color: rgb(247, 226, 198);
+  }
+  code, pre {
+    background-color: #dddddd;
+    border-radius: 0.25em;
+    padding: 0 0.25em;
+  }
+  pre {
+    padding: 0.25em;
+  }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/zyguan/railroad-diagrams@5e868a958ba52847e28b2adefc5dcd8b3172c58d/railroad.umd.js"></script>
@@ -34,7 +48,7 @@ Diagram(
   Choice(
     0,
     Span("Resolve TSO", {href: "tidb-kv-client#resolve-tso"}),
-    Comment("Read by clustered PK"),
+    Comment("Read by clustered PK in auto-commit-txn mode"),
   ),
   Choice(
     0,
