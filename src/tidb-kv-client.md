@@ -262,7 +262,7 @@ Diagram(
 - The size of batch request channel is `tikv-client.max-batch-size` (default: 128), the duration of enqueue is observed as `tidb_tikvclient_batch_wait_duration`.
 - There are three kinds of stream request: CmdBatchCop, CmdCopStream, CmdMPPConn, which involve an additional recv call to fetch the first response from the stream.
 
-Though there is still some latency are missed observed, we can get this approximate formula.
+Though there is still some latency missed observed, we can get this approximate formula.
 
 ```
 tidb_tikvclient_request_seconds = 
