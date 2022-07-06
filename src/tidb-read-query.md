@@ -9,7 +9,7 @@ Diagram(
   Choice(
     0,
     Span("Resolve TSO", {href: "tidb-kv-client#resolve-tso"}),
-    Comment("Read by clustered PK"),
+    Comment("Read by clustered PK in auto-commit-txn mode"),
   ),
   Choice(
     0,

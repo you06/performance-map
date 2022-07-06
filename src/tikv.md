@@ -8,7 +8,7 @@
 - [ ] Add raft-engine execution details.
 - [ ] Add kv engine details to the important stages such as `append_log`.
 - [ ] The coprocessor task latency and worker model relations.
-- [ ] Build a detailed model describing the relationship bettween the user perceivable durations and the information recorded in the tracker. Then
+- [ ] Build a detailed model describing the relationship between the user perceivable durations and the information recorded in the tracker. Then
 it would be straightforward to tell the duration combinations of `cop scheduler`, `task wait`, `io operations like scan`.
 
 ## Grpc Entry
@@ -20,61 +20,45 @@ TODO
 
 ```railroad
 Diagram(
-  Sequence(
-      Span("Grpc Receive"),
-  ),
-  Sequence(
-      Span("Snapshot Fetch"),
-  ),
-  Sequence(
-    Span("Write Seek For The Target Key"),
+  Span("Grpc Receive"),
+  Span("Snapshot Fetch", {href: "#snapshot-fetch"}),
+  Span("Seek For The Target Key", {color: "green", tooltip: "tikv_engine_seek_micro_seconds{type=\"seek_max\"}"}),
+  Choice(
+    0,
+    Span("Load Key Value from the Key", {color: "green"}),
   ),
   Choice(
     0,
-    Span("Load Key Value from the Key"),
+    Span("Load Row Value from default cf", {color: "green"}),
+    Comment("Already Load From Write CF(short value)"),
   ),
-  Choice(
-    0,
-    Span("Load Row Value from default cf"),
-    Comment("Already Load From Write CF"),
-  ),
-  Sequence(
-      Span("Grpc Response"),
-  ),
+  Span("Grpc Response"),
 )
 ```
 
 - The snapshot get duration is observed as `tikv_storage_engine_async_request_duration_seconds_bucket{type="snapshot"}`.
 - The write seek may seek kv db iterator to the target first, there could be some next operations to skip `rollback` and `lock` records.
 - The kv db write seek duration is observed as `tikv_engine_seek_micro_seconds{type="seek_max"}`.
+- When loading value from the key, there are several several paths, short values only need to seek read once, while long value need to read twice after seeking.
+- Some read requests will hit block cache, which benefit from avoiding loading from disk.
+  - Read from disk duration `sum(rate(tikv_storage_rocksdb_perf{metric="block_read_time",req="get"})) / sum(rate(tikv_storage_rocksdb_perf{metric="block_read_count",req="get"}))`.
+  - Read from block cache count `tikv_storage_rocksdb_perf{metric="get_from_memtable_count",req="get"}` (it's fast so we do not collect the time metric).
 
 ### Coprocessor Read
 
 
 ```railroad
 Diagram(
-  Sequence(
-      Span("Grpc Receive"),
-  ),
-  Sequence(
-      Span("Snapshot Fetch"),
-  ),
-  Sequence(
-    Span("Cop Task Wait Schedule"),
-  ),
-  Sequence(
-    Span("Cop Handler Build"),
-  ),
-  Sequence(
-    Span("Cop Task Execution"),
-  ),
+  Span("Grpc Receive"),
+  Span("Snapshot Fetch", {href: "#snapshot-fetch"}),
+  Span("Cop Task Wait Schedule"),
+  Span("Cop Handler Build"),
+  Span("Cop Task Execution"),
   Choice(
     0,
     Span("ResultSet To Chunk Format"),
   ),
-  Sequence(
-      Span("Grpc Response"),
-  ),
+  Span("Grpc Response"),
 )
 ```
 
@@ -89,48 +73,36 @@ Diagram(
 - The cop task execution time is observed as `tikv_coprocessor_request_handle_seconds{type="req"}`. Also is recorded in the request tracker as
   `req_lifetime`
 
-
-
 ### Snapshot Fetch
 
 ```railroad
 Diagram(
   Choice(
     0,
+    Comment("Local Read", {tooltip: "tikv_raftstore_local_read_executed_requests"}),
     Sequence(
-      Span("Local Read"),
-    ),
-    Sequence(
-      Span("Propose Wait"),
-       Sequence(
-         Span("Read index Read Wait"),
-      ),
+      Span("Propose Wait", {color: "green", tooltip: "tikv_raftstore_request_wait_time_duration_secs"}),
+      Span("Read index Read Wait", {color: "green", tooltip: "tikv_raftstore_commit_log_duration_seconds"})
     ),
   ),
-  Sequence(
-      Span("Fetch A Snapshot From KV Engine"),
-  ),
+  Span("Fetch A Snapshot From KV Engine")
 )
 ```
 
-- The number of local read requests rejected is observed as `tikv_raftstore_local_read_reject_total`. If most of the requests are rejected by local reader the
-  performance would be bad.
-- The duration of the read index wait could be regarded as `tikv_raftstore_commit_log_duration_seconds_bucket`.
+- The number of local read requests is observed as `tikv_raftstore_local_read_executed_requests`.
+- The number of local read requests rejected is observed as `tikv_raftstore_local_read_reject_total`.
+  It supports `by (reason)` query.
+  If most of the requests are rejected by local reader the performance would be bad.
+- The duration of the read index wait could be regarded as `tikv_raftstore_commit_log_duration_seconds`.
 
 
 ## TxnKV Write
 
 ```railroad
 Diagram(
-  Sequence(
-      Span("Grpc Receive"),
-  ),
-  Sequence(
-    Span("Acquire Latch For Keys"),
-  ),
-  Sequence(
-      Span("Snapshot Fetch"),
-  ),
+  Span("Grpc Receive"),
+  Span("Acquire Latch For Keys"),
+  Span("Snapshot Fetch", {href: "#snapshot-fetch"}),
   Choice(
     0,
     Span("Process Write Requests"),
@@ -139,9 +111,7 @@ Diagram(
     0,
     Span("Async Write"),
   ),
-  Sequence(
-      Span("Grpc Response"),
-  ),
+  Span("Grpc Response"),
 )
 ```
 
@@ -149,32 +119,21 @@ Diagram(
 - The write command processing may needs to read related from engine first.
 - The async write stage includes both transaction log consistency and state machine apply, it's observed as `tikv_storage_engine_async_request_duration_seconds{type=write}`.
 
-
-
 ### TxnKV Async Write
 
 ``` railroad
 Diagram(
-  Sequence(
-      Span("Propose Wait"),
-  ),
+  Span("Propose Wait"),
   Choice(
     0,
-    Sequence(
-      Span("Append Log"),
-    ),
-    Sequence(
-      Span("Commit Log Wait"),
-    ),
+    Span("Append Log"),
+    Span("Commit Log Wait"),
   ),
-
   Choice(
     0,
     Span("Apply Wait"),
   ),
-  Sequence(
-      Span("Apply Log"),
-  ),
+  Span("Apply Log"),
 )
 ```
 
