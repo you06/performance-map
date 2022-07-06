@@ -151,6 +151,21 @@ Diagram(
   marked.setOptions({ renderer: new Renderer() });
   document.getElementById('CONTENT').innerHTML = marked.parse(document.getElementById('MARKDOWN').innerText);
   marked.defaults.renderer.postActions.forEach(fn => fn());
+
+
+  // quick copy tooltip to clipboard
+  let tooltipElement = document.getElementById("railroad-tooltip");
+  for (const span of document.querySelectorAll('.non-terminal')) {
+    span.addEventListener("click", () => {
+      // skip spans without tooltip
+      if (tooltipElement.style.display !== 'block') {
+        return;
+      }
+      navigator.clipboard.writeText(tooltipElement.innerText).then(() => {
+        alert("Copy tooltip to clipboard");
+      });
+    }) 
+  }
 </script>
 
 </body>
