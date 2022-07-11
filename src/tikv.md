@@ -22,38 +22,42 @@ TODO
 Diagram(
   Span("Grpc Receive"),
   Span("Snapshot Fetch", {href: "#snapshot-fetch"}),
-  Span("Seek For The Target Key", {color: "green", tooltip: "tikv_engine_seek_micro_seconds{type=\"seek_max\"}"}),
-  Choice(
-    0,
-    Span("Load Key Value from the Key", {color: "green"}),
-  ),
-  Choice(
-    0,
-    Span("Load Row Value from default cf", {color: "green"}),
-    Comment("Already Load From Write CF(short value)"),
+  OneOrMore(
+    Sequence(
+      Span("Seek For The Target Key", {color: "green", tooltip: "tikv_engine_seek_micro_seconds{type=\"seek_max\"}"}),
+      Choice(
+        0,
+        Span("Load Key Value from the Key", {color: "green"}),
+      ),
+      Choice(
+        0,
+        Span("Load Row Value from default cf", {color: "green"}),
+        Comment("Already Load From Write CF(short value)"),
+      )
+    ),
+    Comment("loop keys in batch point get")
   ),
   Span("Grpc Response"),
 )
 ```
 
-- The snapshot get duration is observed as `tikv_storage_engine_async_request_duration_seconds_bucket{type="snapshot"}`.
 - The write seek may seek kv db iterator to the target first, there could be some next operations to skip `rollback` and `lock` records.
 - The kv db write seek duration is observed as `tikv_engine_seek_micro_seconds{type="seek_max"}`.
 - When loading value from the key, there are several several paths, short values only need to seek read once, while long value need to read twice after seeking.
 - Some read requests will hit block cache, which benefit from avoiding loading from disk.
-  - Read from disk duration `sum(rate(tikv_storage_rocksdb_perf{metric="block_read_time",req="get"})) / sum(rate(tikv_storage_rocksdb_perf{metric="block_read_count",req="get"}))`.
-  - Read from block cache count `tikv_storage_rocksdb_perf{metric="get_from_memtable_count",req="get"}` (it's fast so we do not collect the time metric).
+  - There are 3 types of TiKV commands.
+  - Read from disk duration `sum(rate(tikv_storage_rocksdb_perf{metric="block_read_time",req="get/batch_get_command/batch_get"})) / sum(rate(tikv_storage_rocksdb_perf{metric="block_read_count",req="get/batch_get_command/batch_get"}))`.
+  - Read from block cache count `tikv_storage_rocksdb_perf{metric="get_from_memtable_count",req="get/batch_get_command/batch_get"}` (it's fast so we do not collect the time metric).
 
 ### Coprocessor Read
-
 
 ```railroad
 Diagram(
   Span("Grpc Receive"),
-  Span("Snapshot Fetch", {href: "#snapshot-fetch"}),
-  Span("Cop Task Wait Schedule"),
-  Span("Cop Handler Build"),
-  Span("Cop Task Execution"),
+  Span("Snapshot Fetch", {color: "green", href: "#snapshot-fetch", tooltip: "tikv_coprocessor_request_wait_seconds_bucket{type=\"snapshot\"}"}),
+  Span("Cop Task Wait Schedule", {color: "green", tooltip: "tikv_coprocessor_request_wait_seconds_bucket{type=\"schedule\"}"}),
+  Span("Cop Handler Build", {color: "green", tooltip: "tikv_coprocessor_request_handler_build_seconds_bucket{type=\"req\"}"}),
+  Span("Cop Task Execution", {color: "green", tooltip: "tikv_coprocessor_request_handle_seconds_bucket{type=\"req\"}"}),
   Choice(
     0,
     Span("ResultSet To Chunk Format"),
@@ -62,16 +66,15 @@ Diagram(
 )
 ```
 
-- The snapshot get duration is observed as `tikv_storage_engine_async_request_duration_seconds_bucket{type="snapshot"}` and
-  `tikv_coprocessor_request_wait_seconds{type="snapshot"}`. Also this duration is recorded in the request tracker as `snapshot_wait_time`.
+- Get snapshot duration is recorded as `tikv_coprocessor_request_wait_seconds_bucket{type="snapshot"}` for coprocessor commands. Also this duration is recorded in the request tracker as `snapshot_wait_time`.
 - The cop task has to wait for worker resources and snapshot fetch:
-  - The cop task wait schedule duration is observed as `tikv_coprocessor_request_wait_seconds{type="schedule"}`. Also this duration is
+  - The cop task wait schedule duration is observed as `tikv_coprocessor_request_wait_seconds_bucket{type="schedule"}`. Also this duration is
     recorded in the request tracker as `schedule_wait_time`.
-  - The cop handler build time is observed as `tikv_coprocessor_request_handler_build_seconds{type="req"}`. Also it's recorded in the request
+  - The cop handler build time is observed as `tikv_coprocessor_request_handler_build_seconds_bucket{type="req"}`. Also it's recorded in the request
     tracker as `handler_build_time`.
   - The total wait time is observed as `tikv_coprocessor_request_wait_seconds{type="all"}`
-- The cop task execution time is observed as `tikv_coprocessor_request_handle_seconds{type="req"}`. Also is recorded in the request tracker as
-  `req_lifetime`
+- The cop task execution time is observed as `tikv_coprocessor_request_handle_seconds_bucket{type="req"}`. Also is recorded in the request tracker as
+  `req_lifetime`.
 
 ### Snapshot Fetch
 
@@ -89,6 +92,7 @@ Diagram(
 )
 ```
 
+- The total snapshot get duration is observed as `tikv_storage_engine_async_request_duration_seconds_bucket{type="snapshot"}`.
 - The number of local read requests is observed as `tikv_raftstore_local_read_executed_requests`.
 - The number of local read requests rejected is observed as `tikv_raftstore_local_read_reject_total`.
   It supports `by (reason)` query.
