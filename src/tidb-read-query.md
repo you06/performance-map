@@ -27,10 +27,10 @@ Diagram(
   Span("Resolve TSO", {href: "tidb-kv-client#resolve-tso"}),
   Choice(
     0,
-    Span("Read all handles by index keys", {href: "tidb-snapshot-read#batch-get"}),
+    Span("Read all handles by index keys", {href: "tidb-snapshot-read#batchget"}),
     Comment("Read by clustered PK, encode handle by keys"),
   ),
-  Span("Read values by handles", {href: "tidb-snapshot-read#batch-get"}),
+  Span("Read values by handles", {href: "tidb-snapshot-read#batchget"}),
 )
 ```
 
@@ -45,7 +45,7 @@ Diagram(
     Span("Load region cache for related table/index ranges"),
     OneOrMore(
       Sequence(
-        Span("Wait for result", {href: "tidb-snapshot-read#coprocessor-scan"}),
+        Span("Wait for result", {color: "green", href: "tidb-snapshot-read#coprocessor-scan", tooltip: "tidb_distsql_handle_query_duration_seconds_bucket{sql_type=\"general\"}"}),
       ),
       Comment("Next loop: drain the result")
     ),
@@ -53,11 +53,10 @@ Diagram(
 )
 ```
 
-Table scan and index scan almost share the same code path,
+Table scan and index scan almost share the same code path.
 For table scan, TiDB split part of the ranges as an optional signed ranges, but here we skip it.
 
 ## IndexLookUp
-
 
 ```railroad
 Diagram(
@@ -66,8 +65,8 @@ Diagram(
     Span("Load region cache for related index ranges"),
     OneOrMore(
       Sequence(
-        Span("Wait for index scan result", {href: "tidb-snapshot-read#coprocessor-scan"}),
-        Span("Wait for table scan result", {href: "tidb-snapshot-read#coprocessor-scan"}),
+        Span("Wait for index scan result", {color: "green", href: "tidb-snapshot-read#coprocessor-scan", tooltip: "tidb_distsql_handle_query_duration_seconds_bucket{sql_type=\"general\"}"}),
+        Span("Wait for table scan result", {color: "green", href: "tidb-snapshot-read#coprocessor-scan", tooltip: "tidb_distsql_handle_query_duration_seconds_bucket{sql_type=\"general\"}"}),
       ),
       Comment("Next loop: drain the result")
     ),
