@@ -197,10 +197,62 @@ When Async IO is enabled:
   - Instead of writing to the log engine directly in the raftstore threads, the write task is sent to the write worker. The wait time for the write worker to report persisted is observed as the difference between `tikv_raftstore_store_wf_persist_duration_seconds` and `tikv_raftstore_store_wf_send_to_queue_duration_seconds`.
 
 
-#### Log Engine Write
+#### Raft-Engine Write (raft-engine.enable: true)
 
-TODO
+``` railroad
+Diagram(
+  Span("Wait for Writer Leader", {color: "green", tooltip: "raft_engine_write_preprocess_duration_seconds"}),
+  Span("Write and Sync Log", {color: "green", tooltip: "raft_engine_write_leader_duration_seconds"}),
+  Span("Apply Log to Memtable", {color: "green", tooltip: "raft_engine_write_apply_duration_seconds"}),
+)
+```
+
+- The wait time for a write leader to handle the log is observed as `raft_engine_write_preprocess_duration_seconds`.
+- The sync log duration is observed as `raft_engine_write_leader_duration_seconds`.
+- The time spent applying the log to the raft-engine memtable is observed as `tikv_raftstore_apply_log_duration_seconds_bucket`.
+
+#### Raft RocksDB Write (raft-engine.enable: false)
+
+``` railroad
+Diagram(
+  Span("Wait for Writer Leader", {color: "green", tooltip: "tikv_raftstore_store_perf_context_time_duration_secs_bucket{type=\"write_thread_wait\"}"}),
+  Span("Preprocess"),
+  Choice(
+    0,
+    Comment("No Need to Switch"),
+    Span("Switch WAL or Memtable", {color: "green", tooltip: "tikv_raftstore_store_perf_context_time_duration_secs_bucket{type=\"write_scheduling_flushes_compactions_time\"}"}),
+  ),
+  Span("Write and Sync WAL", {color: "green", tooltip: "tikv_raftstore_store_perf_context_time_duration_secs_bucket{type=\"write_wal_time\"}"}),
+  Span("Apply to Memtable", {color: "green", tooltip: "tikv_raftstore_store_perf_context_time_duration_secs_bucket{type=\"write_memtable_time\"}"}),
+)
+```
+
+- The wait time for a write leader to handle the log is observed as `tikv_raftstore_store_perf_context_time_duration_secs_bucket{type="write_thread_wait"}`.
+- If necessary, the time spent switching WAL or memtable is observed as `tikv_raftstore_store_perf_context_time_duration_secs_bucket{type="write_scheduling_flushes_compactions_time"}`.
+- The write and sync log duration is observed as `tikv_raftstore_store_perf_context_time_duration_secs_bucket{type="write_wal_time"}`.
+- The time spent applying the log to the RocksDB memtable is observed as `tikv_raftstore_store_perf_context_time_duration_secs_bucket{type="write_memtable_time"}`.
+
+* `tikv_raftstore_store_perf_context_time_duration_secs_bucket{type="pre_and_post_process"}` includes the time in the preprocess procedure. But it also includes the whole write time it is not the write leader.
 
 #### KV Engine Write
 
-TODO
+``` railroad
+Diagram(
+  Span("Wait for Writer Leader", {color: "green", tooltip: "tikv_raftstore_apply_perf_context_time_duration_secs_bucket{type=\"write_thread_wait\"}"}),
+  Span("Preprocess"),
+  Choice(
+    0,
+    Comment("No Need to Switch"),
+    Span("Switch WAL or Memtable", {color: "green", tooltip: "tikv_raftstore_apply_perf_context_time_duration_secs_bucket{type=\"write_scheduling_flushes_compactions_time\"}"}),
+  ),
+  Span("Write WAL", {color: "green", tooltip: "tikv_raftstore_apply_perf_context_time_duration_secs_bucket{type=\"write_wal_time\"}"}),
+  Span("Apply to Memtable", {color: "green", tooltip: "tikv_raftstore_apply_perf_context_time_duration_secs_bucket{type=\"write_memtable_time\"}"}),
+)
+```
+
+- The wait time for a write leader to handle the log is observed as `tikv_raftstore_apply_perf_context_time_duration_secs_bucket{type="write_thread_wait"}`.
+- If necessary, the time spent switching WAL or memtable is observed as `tikv_raftstore_apply_perf_context_time_duration_secs_bucket{type="write_scheduling_flushes_compactions_time"}`.
+- The write log duration is observed as `tikv_raftstore_apply_perf_context_time_duration_secs_bucket{type="write_wal_time"}`.
+- The time spent applying the log to the RocksDB memtable is observed as `tikv_raftstore_apply_perf_context_time_duration_secs_bucket{type="write_memtable_time"}`.
+
+* `tikv_raftstore_apply_perf_context_time_duration_secs_bucket{type="pre_and_post_process"}` includes the time in the preprocess procedure. But it also includes the whole write time it is not the write leader.
