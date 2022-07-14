@@ -7,12 +7,12 @@ Diagram(
   Span("Execute write query"),
   Choice(
     0,
-    Span("Pessimistic lock keys", {href: "tidb-kv-client#txn-kv-lock-keys"}),
+    Span("Pessimistic lock keys", {color: "green", href: "tidb-kv-client#txn-kv-lock-keys", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"lock_keys\"}"}),
     Comment("bypass in optimistic transaction")
   ),
   Choice(
     0,
-    Span("Auto Commit Transaction"),
+    Span("Auto Commit Transaction", {color: "green", href: "tidb-kv-client#txn-kv-commit", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"commit\"}"}),
     Comment("bypass in non-auto-commit or explicit transaction")
   ),
 )
@@ -23,14 +23,7 @@ Diagram(
 ```railroad
 Diagram(
   OneOrMore(
-    Sequence(
-      Choice(
-        0,
-        Span("Check key exist", {href: "tidb-snapshot-read#get"}),
-        Comment("Skip check for optimistic transaction")
-      ),
-      Span("Insert into membuffer")
-    ),
+    Span("Insert into membuffer"),
     Comment("Loop insert rows")
   )
 )
@@ -83,12 +76,12 @@ Diagram(
   Choice(
     0,
     Sequence(
-      Span("Read handle key by index key"),
-      Span("Lock index key", {href: "tidb-kv-client#txn-kv-lock-keys"})
+      Span("Read handle key by index key", {color: "green", href: "tidb-snapshot-read#get", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"get\"}"}),
+      Span("Lock index key", {color: "green", href: "tidb-kv-client#txn-kv-lock-keys", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"lock_keys\"}"})
     ),
     Comment("Clustered index")
   ),
-  Span("Lock handle key", {href: "tidb-kv-client#txn-kv-lock-keys"}),
+  Span("Lock handle key", {color: "green", href: "tidb-kv-client#txn-kv-lock-keys", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"lock_keys\"}"}),
   Span("Raed value from pessimistic lock cache")
 )
 ```
@@ -100,13 +93,13 @@ Diagram(
   Choice(
     0,
     Sequence(
-      Span("Read handle keys by index keys"),
+      Span("Read handle keys by index keys", {color: "green", href: "tidb-snapshot-read#batchget", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"batch_get\"}"}),
     ),
     Comment("Clustered index")
   ),
-  Span("Lock index and handle keys", {href: "tidb-kv-client#txn-kv-lock-keys"}),
+  Span("Lock index and handle keys", {color: "green", href: "tidb-kv-client#txn-kv-lock-keys", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"lock_keys\"}"}),
   Span("Raed values from pessimistic lock cache")
 )
 ```
 
-Cursor point get and batch point get read data from pessimistic lock cache which means pessimistic lock is responsed with the locked value of that key.
+Cursor point get and batch point get acquire pessimistic locks the locked values, so they can read data from pessimistic lock cache directly later.

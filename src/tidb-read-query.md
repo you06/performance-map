@@ -13,10 +13,10 @@ Diagram(
   ),
   Choice(
     0,
-    Span("Read handle by index key", {href: "tidb-snapshot-read#get"}),
+    Span("Read handle by index key", {color: "green", href: "tidb-snapshot-read#get", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"get\"}"}),
     Comment("Read by clustered PK, encode handle by key"),
   ),
-  Span("Read value by handle", {href: "tidb-snapshot-read#get"}),
+  Span("Read value by handle", {color: "green", href: "tidb-snapshot-read#get", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"get\"}"}),
 )
 ```
 
@@ -27,10 +27,10 @@ Diagram(
   Span("Resolve TSO", {href: "tidb-kv-client#resolve-tso"}),
   Choice(
     0,
-    Span("Read all handles by index keys", {href: "tidb-snapshot-read#batchget"}),
+    Span("Read all handles by index keys", {color: "green", href: "tidb-snapshot-read#batchget", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"batch_get\"}"}),
     Comment("Read by clustered PK, encode handle by keys"),
   ),
-  Span("Read values by handles", {href: "tidb-snapshot-read#batchget"}),
+  Span("Read values by handles", {color: "green", href: "tidb-snapshot-read#batchget", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"batch_get\"}"}),
 )
 ```
 
