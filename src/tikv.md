@@ -114,6 +114,7 @@ Diagram(
   Choice(
     0,
     Span("Async Write"),
+    Comment("in-mem pessimistic lock")
   ),
   Span("Grpc Response"),
 )
@@ -122,6 +123,7 @@ Diagram(
 - The latch acquisition is observed as `TiKV_scheduler_latch_wait_duration_seconds{type=xxx}`.
 - The write command processing may needs to read related from engine first.
 - The async write stage includes both transaction log consistency and state machine apply, it's observed as `tikv_storage_engine_async_request_duration_seconds{type=write}`.
+- In-mem pessimistic lock will bypass write phase, the in-mem lock count is observed as `tikv_in_memory_pessimistic_locking{result="success"}`.
 
 ### TxnKV Async Write
 
