@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<head>
+<title>
+TiDB Write Duration
+</title>
+<link rel='stylesheet' href='https://cdn.jsdelivr.net/gh/zyguan/railroad-diagrams@5e868a958ba52847e28b2adefc5dcd8b3172c58d/railroad.css'/>
+<style>
+  body {
+    background-color: hsl(30, 20%, 95%);
+  }
+  svg.railroad-diagram rect {
+    fill: rgb(245, 245, 245);
+  }
+  svg.railroad-diagram g.color-green rect {
+    fill: rgb(204, 255, 204);
+  }
+  svg.railroad-diagram g.color-yellow rect {
+    fill: rgb(254, 255, 204);
+  }
+  svg.railroad-diagram g.color-blue rect {
+    fill: rgb(202, 220, 250);
+  }
+  *:target {
+    background-color: rgb(247, 226, 198);
+  }
+  code, pre {
+    background-color: #dddddd;
+    border-radius: 0.25em;
+    padding: 0 0.25em;
+  }
+  pre {
+    padding: 0.25em;
+  }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/zyguan/railroad-diagrams@5e868a958ba52847e28b2adefc5dcd8b3172c58d/railroad.umd.js"></script>
+</head>
+<body>
+
+<div id="railroad-tooltip" class="railroad-diagram-tooltip"></div>
+<div id="CONTENT"></div>
+<script id="MARKDOWN" type="text/plain">
+# TiDB Write Duration
+
+TiDB process write queries in a no-delay way, and many write executors are based upon read executors.
+
+```railroad
+Diagram(
+  Span("Execute write query"),
+  Choice(
+    0,
+    Span("Pessimistic lock keys", {color: "green", href: "tidb-kv-client#txn-kv-lock-keys", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"lock_keys\"}"}),
+    Comment("bypass in optimistic transaction")
+  ),
+  Choice(
+    0,
+    Span("Auto Commit Transaction", {color: "green", href: "tidb-kv-client#txn-kv-commit", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"commit\"}"}),
+    Comment("bypass in non-auto-commit or explicit transaction")
+  ),
+)
+```
+
+## Insert
+
+```railroad
+Diagram(
+  OneOrMore(
+    Span("Insert into membuffer"),
+    Comment("Loop insert rows")
+  )
+)
+```
+
+TiDB processes insert in memory so it's fast for small dataset.
+With large dataset like `insert into select`, the insert is processed only in a single thread(about 50,000 to 100,000 rows per second), there may be a performance issue.
+
+## Delete
+
+```railroad
+Diagram(
+  Span("Read data", {href: "tidb-read-query"}),
+  OneOrMore(
+    Span("Delete from membuffer"),
+    Comment("Loop delete keys"),
+  )
+)
+```
+
+Similar with insert, delete are fast for small dataset.
+With large dataset, delete is little faster than insert statement.
+
+## Update
+
+```railroad
+Diagram(
+  Span("Read data", {href: "tidb-read-query"}),
+  OneOrMore(
+    Sequence(
+      Span("Check key exist", {href: "tidb-snapshot-read#get"}),
+      Span("Insert into membuffer")
+    ),
+    Comment("Loop update rows")
+  )
+)
+```
+
+Update combines delete and insert.
+
+## Cursor Read
+
+Cursor read(`select for update`) is a special type of read statement, it's processed the same way like non-cursor read statements in optimistic and auto-commit transactions. Only inside pessimistic transactions, cursor read have an extra pessimistic lock phase.
+Cursor read with coprocessor executors add pessimisitc locks in the same way of write executors, so we analyze point get and batch point get here.
+
+### Cursor Point Get
+
+```railroad
+Diagram(
+  Choice(
+    0,
+    Sequence(
+      Span("Read handle key by index key", {color: "green", href: "tidb-snapshot-read#get", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"get\"}"}),
+      Span("Lock index key", {color: "green", href: "tidb-kv-client#txn-kv-lock-keys", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"lock_keys\"}"})
+    ),
+    Comment("Clustered index")
+  ),
+  Span("Lock handle key", {color: "green", href: "tidb-kv-client#txn-kv-lock-keys", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"lock_keys\"}"}),
+  Span("Raed value from pessimistic lock cache")
+)
+```
+
+### Cursor Batch Point Get
+
+```railroad
+Diagram(
+  Choice(
+    0,
+    Sequence(
+      Span("Read handle keys by index keys", {color: "green", href: "tidb-snapshot-read#batchget", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"batch_get\"}"}),
+    ),
+    Comment("Clustered index")
+  ),
+  Span("Lock index and handle keys", {color: "green", href: "tidb-kv-client#txn-kv-lock-keys", tooltip: "tidb_tikvclient_txn_cmd_duration_seconds{type=\"lock_keys\"}"}),
+  Span("Raed values from pessimistic lock cache")
+)
+```
+
+Cursor point get and batch point get acquire pessimistic locks the locked values, so they can read data from pessimistic lock cache directly later.
+</script>
+
+<script>
+  // export railroad defaults
+  Object.entries(railroad.default).forEach(([k, v]) => globalThis[k] = v);
+  // aliases
+  function Span(text, {href, tooltip, color}={}) {
+    return NonTerminal(text, {href: href, tooltip: tooltip, cls: `color-${color}`})
+  }
+
+  // render markdown
+  class Renderer extends marked.Renderer {
+    constructor(options) {
+      super(options);
+      this.postActions = [];
+    }
+    code(text, lang, escaped) {
+      if (lang != 'railroad') {
+        return super.code(text, lang, escaped);
+      } else {
+        const id = `railroad-${window.crypto.getRandomValues(new Uint32Array(1))[0].toString(16)}`;
+        this.postActions.push(function() {
+          const src = document.createElement('script');
+          src.innerHTML = `${text}.addTo(document.getElementById('${id}'), {tooltip: document.getElementById('railroad-tooltip')})`;
+          document.body.appendChild(src);
+        });
+        return `<div id=${id}></div>\n`;
+      }
+    }
+  }
+
+  marked.setOptions({ renderer: new Renderer() });
+  document.getElementById('CONTENT').innerHTML = marked.parse(document.getElementById('MARKDOWN').innerText);
+  marked.defaults.renderer.postActions.forEach(fn => fn());
+
+
+  // quick copy tooltip to clipboard
+  let tooltipElement = document.getElementById("railroad-tooltip");
+  for (const span of document.querySelectorAll('.non-terminal')) {
+    span.addEventListener("click", () => {
+      // skip spans without tooltip
+      if (tooltipElement.style.display !== 'block') {
+        return;
+      }
+      navigator.clipboard.writeText(tooltipElement.innerText).then(() => {
+        alert("Copy tooltip to clipboard");
+      });
+    }) 
+  }
+</script>
+
+</body>

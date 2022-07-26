@@ -17,6 +17,9 @@ TiDB KV Client
   svg.railroad-diagram g.color-yellow rect {
     fill: rgb(254, 255, 204);
   }
+  svg.railroad-diagram g.color-blue rect {
+    fill: rgb(202, 220, 250);
+  }
   *:target {
     background-color: rgb(247, 226, 198);
   }
@@ -128,10 +131,10 @@ Diagram(
       Choice(
         0,
         Comment("use 2pc or causal consistency"),
-        Span("Get min-commit-ts"),
+        Span("Get min-commit-ts", {color: "blue", tooltip: "Get_latest_ts_time"}),
       ),
       Optional("Async prewrite binlog", "skip"),
-      Span("Prewrite mutations", {href: "#do-action-on-mutations"}),
+      Span("Prewrite mutations", {href: "#do-action-on-mutations", color: "blue", tooltip: "Prewrite_time"}),
       Optional("Wait prewrite binlog result", "skip"),
     ),
     Sequence(
@@ -140,9 +143,9 @@ Diagram(
         Comment("1pc"),
         Sequence(
           Comment("2pc"),
-          Span("Get commit-ts"),
+          Span("Get commit-ts", {color: "blue", tooltip: "Get_commit_ts_time"}),
           Span("Check schema (try to amend if needed)"),
-          Span("Commit mutations", {href: "#do-action-on-mutations"}),
+          Span("Commit PK mutation", {href: "#do-action-on-mutations", color: "blue", tooltip: "Commit_time"}),
         ),
         Sequence(
           Comment("async-commit"),
@@ -161,6 +164,11 @@ Diagram(
 ```
 
 - Spans are recorded in `CommitDetails` which can be extracted from slow log.
+- The duration of commit protocol can be observed in slowlog.
+  - Get min-commit-ts is observed as `Get_latest_ts_time`.
+  - Prewrite mutations duration is observed as `Prewrite_time`.
+  - Get commit-ts is observed as `Get_commit_ts_time`.
+  - Commit PK mutation duration is observed as `Commit_time`.
 
 ## Txn KV: Rollback
 
@@ -216,6 +224,9 @@ Diagram(
   ),
 )
 ```
+
+- The average batch size can be calculate from `sum(rate(tidb_tikvclient_txn_regions_num_sum)) / sum(rate(tidb_tikvclient_txn_regions_num_count))`.
+- The default concurrency of batch executor is `128`, so we can take latency amplification of batch executor as `sum(rate(tidb_tikvclient_txn_regions_num_sum)) / sum(rate(tidb_tikvclient_txn_regions_num_count)) / 128`.
 
 ### Action: Pessimistic Lock
 

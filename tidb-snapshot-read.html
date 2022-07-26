@@ -17,6 +17,9 @@ TiDB Snapshot Read Duration
   svg.railroad-diagram g.color-yellow rect {
     fill: rgb(254, 255, 204);
   }
+  svg.railroad-diagram g.color-blue rect {
+    fill: rgb(202, 220, 250);
+  }
   *:target {
     background-color: rgb(247, 226, 198);
   }
@@ -64,6 +67,8 @@ Diagram(
 )
 ```
 
+- The duration is observed as `tidb_tikvclient_txn_cmd_duration_seconds{type="get"}`.
+
 ## BatchGet
 
 ```railroad
@@ -94,6 +99,8 @@ Diagram(
   )
 )
 ```
+
+- The duration is observed as `tidb_tikvclient_txn_cmd_duration_seconds{type="batch_get"}`.
 
 ## Coprocessor Scan
 
