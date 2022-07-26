@@ -25,6 +25,8 @@ Diagram(
 )
 ```
 
+- The duration is observed as `tidb_tikvclient_txn_cmd_duration_seconds{type="get"}`.
+
 ## BatchGet
 
 ```railroad
@@ -55,6 +57,8 @@ Diagram(
   )
 )
 ```
+
+- The duration is observed as `tidb_tikvclient_txn_cmd_duration_seconds{type="batch_get"}`.
 
 ## Coprocessor Scan
 
